@@ -7,7 +7,7 @@ import { HowItWorksSection } from '@/components/landing/HowItWorksSection';
 import { FeatureSection } from '@/components/landing/FeatureSection';
 import { SecuritySection } from '@/components/landing/SecuritySection';
 import { WhoItsForSection } from '@/components/landing/WhoItsForSection';
-import { TestimonialsSection } from '@/components/landing/TestimonialsSection';
+
 import { CallToAction } from '@/components/landing/CallToAction';
 import { LoadingScreen } from '@/components/landing/LoadingScreen';
 
@@ -19,7 +19,7 @@ const Index = () => {
   const showFeatures = useAnimateIn(false, 1200);
   const showSecurity = useAnimateIn(false, 1500);
   const showWhoItsFor = useAnimateIn(false, 1800);
-  const showTestimonials = useAnimateIn(false, 2100);
+  
   const showCallToAction = useAnimateIn(false, 2400);
   
   useEffect(() => {
@@ -61,9 +61,6 @@ const Index = () => {
           
           {/* Who It's For Section */}
           <WhoItsForSection show={showWhoItsFor} />
-          
-          {/* Testimonials Section */}
-          <TestimonialsSection showTestimonials={showTestimonials} />
           
           {/* Call to Action */}
           <CallToAction show={showCallToAction} />
