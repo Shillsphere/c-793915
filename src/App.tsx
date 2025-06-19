@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -16,6 +15,7 @@ import SearchPage from "./pages/SearchPage";
 import Settings from "./pages/Settings";
 import ManagePage from "./pages/ManagePage";
 import Navbar from "./components/Navbar";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -57,7 +57,9 @@ const AppRoutes = () => {
         path="/manage" 
         element={
           <PageTransition>
-            <ManagePage />
+            <ProtectedRoute>
+              <ManagePage />
+            </ProtectedRoute>
           </PageTransition>
         } 
       />
@@ -65,7 +67,9 @@ const AppRoutes = () => {
         path="/profile" 
         element={
           <PageTransition>
-            <Profile />
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
           </PageTransition>
         } 
       />
@@ -73,7 +77,9 @@ const AppRoutes = () => {
         path="/import" 
         element={
           <PageTransition>
-            <Import />
+            <ProtectedRoute>
+              <Import />
+            </ProtectedRoute>
           </PageTransition>
         } 
       />
@@ -81,7 +87,9 @@ const AppRoutes = () => {
         path="/search" 
         element={
           <PageTransition>
-            <SearchPage />
+            <ProtectedRoute>
+              <SearchPage />
+            </ProtectedRoute>
           </PageTransition>
         } 
       />
@@ -89,7 +97,9 @@ const AppRoutes = () => {
         path="/settings" 
         element={
           <PageTransition>
-            <Settings />
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
           </PageTransition>
         } 
       />
