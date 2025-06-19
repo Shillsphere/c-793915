@@ -78,15 +78,78 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      waitlist_applications: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          linkedin: string
+          name: string
+          reason: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["waitlist_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          linkedin: string
+          name: string
+          reason: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["waitlist_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          linkedin?: string
+          name?: string
+          reason?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["waitlist_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_user_accepted_on_waitlist: {
+        Args: { user_email: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      waitlist_status: "pending" | "accepted" | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -201,6 +264,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      waitlist_status: ["pending", "accepted", "rejected"],
+    },
   },
 } as const

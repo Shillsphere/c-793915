@@ -10,8 +10,9 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useState } from "react"
-import { Check, Mail, User, Link as LinkIcon } from "lucide-react"
+import { Check, Mail, User, Link as LinkIcon, Loader2 } from "lucide-react"
 import { toast } from "sonner"
+import { supabase } from "@/integrations/supabase/client"
 
 interface WaitlistModalProps {
   isOpen: boolean
@@ -26,15 +27,52 @@ export function WaitlistModal({ isOpen, onClose }: WaitlistModalProps) {
     linkedin: "",
     reason: ""
   })
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Here you would typically send this data to your backend
-    console.log("Submitted data:", formData)
-    toast.success("Thanks for joining our waitlist! We'll be in touch soon.", {
-      duration: 5000,
-    })
-    onClose()
+    setIsSubmitting(true)
+
+    try {
+      const { error } = await supabase
+        .from('waitlist_applications')
+        .insert([
+          {
+            name: formData.name,
+            email: formData.email,
+            linkedin: formData.linkedin,
+            reason: formData.reason
+          }
+        ])
+
+      if (error) {
+        if (error.code === '23505') {
+          toast.error("You've already applied to our waitlist!")
+        } else {
+          toast.error("Failed to submit application. Please try again.")
+        }
+        return
+      }
+
+      toast.success("Thanks for joining our waitlist! We'll be in touch soon.", {
+        duration: 5000,
+      })
+      
+      // Reset form
+      setFormData({
+        name: "",
+        email: "",
+        linkedin: "",
+        reason: ""
+      })
+      
+      onClose()
+    } catch (error) {
+      console.error('Error submitting waitlist application:', error)
+      toast.error("Something went wrong. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -103,8 +141,13 @@ export function WaitlistModal({ isOpen, onClose }: WaitlistModalProps) {
             />
           </div>
 
-          <Button type="submit" className="w-full">
-            <Check className="mr-2 h-4 w-4" /> Submit
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Check className="mr-2 h-4 w-4" />
+            )}
+            {isSubmitting ? "Submitting..." : "Submit"}
           </Button>
         </form>
       </DialogContent>
