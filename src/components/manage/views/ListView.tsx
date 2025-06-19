@@ -1,11 +1,11 @@
 
 import React from 'react';
 import { Check, Square } from 'lucide-react';
-import { CortexItem } from '../cortex-data';
+import { LinkdmsItem } from '../linkdms-data';
 import { cn } from '@/lib/utils';
 
 interface ListViewProps {
-  items: CortexItem[];
+  items: LinkdmsItem[];
   selectedItems?: string[];
   onSelectItem?: (id: string) => void;
 }

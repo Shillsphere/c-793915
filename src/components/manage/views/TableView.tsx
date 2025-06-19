@@ -10,11 +10,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CortexItem, columns } from '../cortex-data';
+import { LinkdmsItem, columns } from '../linkdms-data';
 import { cn } from '@/lib/utils';
 
 interface TableViewProps {
-  items: CortexItem[];
+  items: LinkdmsItem[];
   selectedItems?: string[];
   onSelectItem?: (id: string) => void;
 }

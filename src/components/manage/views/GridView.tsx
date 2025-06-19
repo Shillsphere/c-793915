@@ -1,12 +1,12 @@
 
 import React from 'react';
 import { Card } from '@/components/ui/card';
-import { CortexItem } from '../cortex-data';
+import { LinkdmsItem } from '../linkdms-data';
 import { Check, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface GridViewProps {
-  items: CortexItem[];
+  items: LinkdmsItem[];
   selectedItems?: string[];
   onSelectItem?: (id: string) => void;
 }
