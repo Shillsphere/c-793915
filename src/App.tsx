@@ -8,8 +8,6 @@ import { useEffect } from "react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import Index from "./pages/Index";
-import WhyPage from "./pages/WhyPage";
-import HowPage from "./pages/HowPage";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
 import Import from "./pages/Import";
@@ -46,23 +44,7 @@ const AppRoutes = () => {
           </PageTransition>
         } 
       />
-      <Route 
-        path="/why" 
-        element={
-          <PageTransition>
-            <WhyPage />
-          </PageTransition>
-        } 
-      />
-      <Route 
-        path="/how" 
-        element={
-          <PageTransition>
-            <HowPage />
-          </PageTransition>
-        } 
-      />
-      <Route 
+      <Route
         path="/manage" 
         element={
           <PageTransition>

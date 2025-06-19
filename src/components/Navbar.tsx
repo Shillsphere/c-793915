@@ -136,9 +136,7 @@ export const Navbar = () => {
   };
 
   const linkdmsSubmenu = [
-    { to: '/', icon: <Info size={18} />, label: 'What', id: 'what' },
-    { to: '/why', icon: <HelpCircle size={18} />, label: 'Why', id: 'why' },
-    { to: '/how', icon: <Code size={18} />, label: 'How', id: 'how' },
+    { to: '/', icon: <Info size={18} />, label: 'What', id: 'what' }
   ];
   
   const authNavItems = [
@@ -161,7 +159,7 @@ export const Navbar = () => {
               to="#"
               icon={<img src="/lovable-uploads/3b23cd93-e10d-4a73-909c-b07ab3b51d18.png" alt="Linkdms" className="w-5 h-5" />}
               label="Linkdms"
-              active={['what', 'why', 'how'].includes(active)}
+              active={active === 'what'}
               onClick={() => {}}
               hasSubmenu={true}
             >
