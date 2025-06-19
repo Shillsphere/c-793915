@@ -3,6 +3,7 @@ import { useAnimateIn } from '@/lib/animations';
 import { Button } from '@/components/ui/button';
 import { Link, Upload, Edit, Play, Settings, MessageSquare, BarChart3, Shield } from 'lucide-react';
 import { AnimatedTransition } from '@/components/AnimatedTransition';
+import { WaitlistModal } from '@/components/waitlist/WaitlistModal';
 
 const SetupStep = ({ 
   number, 
@@ -58,6 +59,7 @@ const FeatureCard = ({
 
 const HowPage = () => {
   const [loading, setLoading] = useState(true);
+  const [isWaitlistModalOpen, setIsWaitlistModalOpen] = useState(false);
   const showContent = useAnimateIn(false, 300);
   
   useEffect(() => {
@@ -227,12 +229,21 @@ const HowPage = () => {
             <p className="text-xl text-muted-foreground mb-8">
               Join 50+ founders already using linkdms to automate their LinkedIn outreach
             </p>
-            <Button size="lg" className="rounded-full px-8 py-6 text-lg">
+            <Button 
+              size="lg" 
+              className="rounded-full px-8 py-6 text-lg"
+              onClick={() => setIsWaitlistModalOpen(true)}
+            >
               Get Early Access
             </Button>
           </div>
         </AnimatedTransition>
       </div>
+      
+      <WaitlistModal 
+        isOpen={isWaitlistModalOpen} 
+        onClose={() => setIsWaitlistModalOpen(false)} 
+      />
     </div>
   );
 };
