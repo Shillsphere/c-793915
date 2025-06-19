@@ -10,29 +10,29 @@ export const SecuritySection = ({
 }: SecuritySectionProps) => {
   const securityFeatures = [{
     icon: <Lock size={24} />,
-    title: "End-to-End Encryption",
-    description: "Your data is encrypted at rest and in transit, ensuring that only you can access your knowledge."
+    title: "Encrypted LinkedIn Session",
+    description: "Your LinkedIn session cookie is encrypted at rest."
   }, {
     icon: <KeyRound size={24} />,
-    title: "Two-Factor Authentication",
-    description: "Add an extra layer of security to your account with our robust two-factor authentication system."
+    title: "No Data Storage",
+    description: "We never store or sell prospect data."
   }, {
     icon: <Eye size={24} />,
-    title: "Privacy Controls",
-    description: "Fine-grained privacy settings that give you complete control over what you share and who you share it with."
+    title: "Safe Daily Limits",
+    description: "Built-in daily limits and randomised timing keep your profile in the green."
   }];
   const securityFAQs = [{
-    question: "How is my data encrypted?",
-    answer: "We use industry-standard AES-256 encryption for all data at rest, and TLS 1.3 for all data in transit. Your encryption keys are derived from your password using PBKDF2 with a high iteration count, ensuring that only you can decrypt your data."
+    question: "Will this get my LinkedIn account banned?",
+    answer: "No. We built linkdms after getting warnings ourselves. Our system mimics human behavior with randomized timing, local time zones, and hard caps under LinkedIn's limits."
   }, {
-    question: "Where is my data stored?",
-    answer: "Your data is stored in secure, SOC 2 compliant data centers. We use a distributed architecture with redundancy across multiple geographic regions to ensure high availability and disaster recovery capabilities."
+    question: "How many messages can I send per day?",
+    answer: "linkdms caps at 20 messages per day with randomized 3-12 minute delays to stay well under LinkedIn's detection thresholds."
   }, {
-    question: "Can the Cortex team access my notes?",
-    answer: "No. We employ a zero-knowledge architecture, which means that your data is encrypted before it leaves your device. The encryption keys are derived from your password, which we never store. This means that even Cortex employees cannot access your unencrypted data."
+    question: "Do you store my LinkedIn data?",
+    answer: "No. We only store encrypted session cookies to maintain your connection. All prospect data is processed in real-time and never stored on our servers."
   }, {
-    question: "How do you handle data deletion?",
-    answer: "When you delete data in Cortex, it is immediately marked for deletion and removed from your view. The data is then permanently purged from our systems within 30 days. You can also request a complete account deletion, which will remove all your data from our systems."
+    question: "What happens if someone replies?",
+    answer: "The sequence automatically stops for that prospect the moment they reply, ensuring only human conversations continue."
   }];
   return <AnimatedTransition show={show} animation="slide-up" duration={600}>
       <div className="mt-24 mb-16">
@@ -43,9 +43,9 @@ export const SecuritySection = ({
               <span className="font-semibold">Security & Privacy</span>
             </div>
           </div>
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Your second brain deserves the best protection</h2>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">Privacy & account safety</h2>
           <p className="text-muted-foreground mt-3 max-w-2xl mx-auto">
-            We've built Cortex with security and privacy as core principles, not afterthoughts.
+            We built linkdms for ourselves after getting a "Slow down" warning from LinkedIn. Since switching, none of our beta users have been throttled or restricted.
           </p>
         </div>
         
@@ -66,10 +66,10 @@ export const SecuritySection = ({
           <div>
             <h3 className="text-2xl font-bold mb-4 flex items-center">
               <Sparkles size={22} className="text-primary mr-2" />
-              Your data, your control
+              Automation that plays nice with LinkedIn
             </h3>
             <p className="text-muted-foreground mb-6">
-              We believe that your thoughts and ideas belong to you and only you. That's why we've designed Cortex with privacy as a fundamental principle.
+              linkdms never spams. It personalises with the prospect's headline and last post, sends during local business hours, and pauses the moment a human replies.
             </p>
             
             <div className="space-y-4">

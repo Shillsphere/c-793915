@@ -2,23 +2,25 @@
 import { useState, useEffect } from 'react';
 import { useAnimateIn } from '@/lib/animations';
 import { HeroSection } from '@/components/landing/HeroSection';
-import { ManageSection } from '@/components/landing/ManageSection';
-import { DesignSection } from '@/components/landing/DesignSection';
-import { DeploySection } from '@/components/landing/DeploySection';
+import { ProblemSection } from '@/components/landing/ProblemSection';
+import { HowItWorksSection } from '@/components/landing/HowItWorksSection';
+import { FeatureSection } from '@/components/landing/FeatureSection';
+import { SecuritySection } from '@/components/landing/SecuritySection';
+import { WhoItsForSection } from '@/components/landing/WhoItsForSection';
 import { TestimonialsSection } from '@/components/landing/TestimonialsSection';
 import { CallToAction } from '@/components/landing/CallToAction';
 import { LoadingScreen } from '@/components/landing/LoadingScreen';
-import UseCasesSection from '@/components/landing/UseCasesSection';
 
 const Index = () => {
   const [loading, setLoading] = useState(true);
   const showHero = useAnimateIn(false, 300);
-  const showManage = useAnimateIn(false, 600);
-  const showDesign = useAnimateIn(false, 900);
-  const showDeploy = useAnimateIn(false, 1200);
-  const showUseCases = useAnimateIn(false, 1500);
-  const showTestimonials = useAnimateIn(false, 1800);
-  const showCallToAction = useAnimateIn(false, 2100);
+  const showProblem = useAnimateIn(false, 600);
+  const showHowItWorks = useAnimateIn(false, 900);
+  const showFeatures = useAnimateIn(false, 1200);
+  const showSecurity = useAnimateIn(false, 1500);
+  const showWhoItsFor = useAnimateIn(false, 1800);
+  const showTestimonials = useAnimateIn(false, 2100);
+  const showCallToAction = useAnimateIn(false, 2400);
   
   useEffect(() => {
     // Simulate loading
@@ -45,17 +47,20 @@ const Index = () => {
           {/* Hero Section */}
           <HeroSection showTitle={showHero} />
           
-          {/* Manage Section */}
-          <ManageSection show={showManage} />
+          {/* Problem Section */}
+          <ProblemSection show={showProblem} />
           
-          {/* Design Section */}
-          <DesignSection show={showDesign} />
+          {/* How It Works Section */}
+          <HowItWorksSection show={showHowItWorks} />
           
-          {/* Deploy Section */}
-          <DeploySection show={showDeploy} />
+          {/* Features Section */}
+          <FeatureSection showFeatures={showFeatures} />
           
-          {/* Use Cases Section */}
-          <UseCasesSection show={showUseCases} />
+          {/* Security Section */}
+          <SecuritySection show={showSecurity} />
+          
+          {/* Who It's For Section */}
+          <WhoItsForSection show={showWhoItsFor} />
           
           {/* Testimonials Section */}
           <TestimonialsSection showTestimonials={showTestimonials} />

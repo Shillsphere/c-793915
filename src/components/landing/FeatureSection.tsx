@@ -11,38 +11,38 @@ export const FeatureSection = ({ showFeatures }: FeatureSectionProps) => {
   const features = [
     {
       icon: <BrainCircuit size={24} />,
-      title: "Neural Connections",
-      description: "Build meaningful connections between your notes, files, and ideas with our visual network view.",
+      title: "Human-sounding AI copy",
+      description: "Mentions their headline & last post.",
       color: "from-blue-400/60 to-blue-600/40"
     },
     {
       icon: <Search size={24} />,
-      title: "Smart Search",
-      description: "Find anything instantly with our AI-powered semantic search that understands context and meaning.",
+      title: "Safe-send engine",
+      description: "3-12 min random delay, local time zones, 20/day cap.",
       color: "from-purple-400/60 to-purple-600/40"
     },
     {
       icon: <FileText size={24} />,
-      title: "Rich Content",
-      description: "Store notes, links, files, images, and projects in one unified knowledge system.",
+      title: "Automatic follow-up pause",
+      description: "Stops the sequence instantly on any reply.",
       color: "from-green-400/60 to-green-600/40"
     },
     {
       icon: <LinkIcon size={24} />,
-      title: "Automatic Linking",
-      description: "Our AI suggests connections between related content to build your knowledge graph organically.",
+      title: "Micro-dashboard",
+      description: "Sent · Opened · Replied · Booked; export to CSV.",
       color: "from-amber-400/60 to-amber-600/40"
     },
     {
       icon: <Database size={24} />,
-      title: "Multi-source Import",
-      description: "Import content from various sources including notes apps, bookmarks, and more.",
+      title: "Lead-magnet short-link",
+      description: "Track clicks on your freebie PDF.",
       color: "from-rose-400/60 to-rose-600/40"
     },
     {
       icon: <Network size={24} />,
-      title: "Visual Thinking",
-      description: "Visualize your thoughts and connections in an interactive knowledge graph.",
+      title: "Zero bloat",
+      description: "No pipelines, no Kanban, no tagging rabbit hole.",
       color: "from-indigo-400/60 to-indigo-600/40"
     }
   ];
@@ -57,9 +57,9 @@ export const FeatureSection = ({ showFeatures }: FeatureSectionProps) => {
               <span className="font-semibold">Key Features</span>
             </div>
           </div>
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Everything you need to expand your mind</h2>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">Key Features</h2>
           <p className="text-muted-foreground mt-3 max-w-2xl mx-auto">
-            Discover how our digital second brain transforms the way you capture, connect, and recall information.
+            linkdms automates the boring 90% of LinkedIn outreach. Upload a list, approve the tone, and let our AI deliver 20 personalised messages a day—without triggering spam flags.
           </p>
         </div>
         
