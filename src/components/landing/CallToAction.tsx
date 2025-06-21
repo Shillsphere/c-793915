@@ -17,7 +17,7 @@ export const CallToAction = ({
       <AnimatedTransition show={show} animation="slide-up" duration={600}>
         <div className="py-16 md:py-24 text-primary-foreground rounded-2xl text-center bg-blue-600">
           <h2 className="text-4xl font-bold mb-4 md:text-6xl">Join the 50-seat beta →</h2>
-          <p className="text-xl mb-10">$59/mo starter pricing · Cancel anytime</p>
+          <p className="text-xl mb-10">We're currently testing with a small amount of users</p>
           
           <div className="flex flex-wrap justify-center gap-4">
             <Button 
