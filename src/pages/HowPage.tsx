@@ -91,7 +91,7 @@ const HowPage = () => {
             
             <div className="glass-panel p-6 rounded-lg">
               <p className="text-lg text-primary font-medium">
-                GPT-4o for copy, Supabase for storage, Redis queue for send cadence, residential proxy rotation for safe login.
+                Top performing AI models for copy, Supabase for storage, Redis queue for send cadence, residential proxy rotation for safe login.
               </p>
             </div>
           </div>
@@ -110,8 +110,6 @@ const HowPage = () => {
                 title="Connect Your LinkedIn"
                 description="Secure one-click connection to your LinkedIn account"
                 details={[
-                  "No password required - we use secure session authentication",
-                  "Your credentials are encrypted and never stored",
                   "Takes less than 30 seconds to set up",
                   "Works with LinkedIn Premium and free accounts"
                 ]}
@@ -165,7 +163,7 @@ const HowPage = () => {
               <FeatureCard
                 icon={<MessageSquare size={32} className="text-primary" />}
                 title="AI Message Generation"
-                description="GPT-4o analyzes each prospect's profile and recent activity to craft personalized messages that feel human-written."
+                description="Top performing AI models analyze each prospect's profile and recent activity to craft personalized messages that feel human-written."
               />
               
               <FeatureCard
@@ -222,13 +220,11 @@ const HowPage = () => {
           </div>
         </AnimatedTransition>
         
-        {/* CTA */}
-        <AnimatedTransition show={showContent} animation="slide-up" duration={1400}>
-          <div className="text-center">
-            <h2 className="text-3xl font-bold mb-4">Ready to Start?</h2>
-            <p className="text-xl text-muted-foreground mb-8">
-              Join 50+ founders already using linkdms to automate their LinkedIn outreach
-            </p>
+        {/* Call to Action */}
+        <AnimatedTransition show={showContent} animation="slide-up" duration={1500}>
+          <div className="py-16 md:py-24 text-primary-foreground rounded-2xl text-center bg-blue-600 mt-20">
+            <h2 className="text-4xl font-bold mb-4 md:text-6xl">Ready to automate your outreach?</h2>
+            <p className="text-xl mb-10">Join the waitlist to get early access.</p>
             <Button 
               size="lg" 
               className="rounded-full px-8 py-6 text-lg"

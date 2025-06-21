@@ -49,19 +49,6 @@ export const SecuritySection = ({
           </p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          {securityFeatures.map((feature, idx) => <div key={idx} className="glass-panel rounded-xl p-6 md:p-8 relative overflow-hidden group">
-              <div className="absolute -right-12 -bottom-12 w-40 h-40 bg-primary rounded-full opacity-5 group-hover:opacity-10 transition-opacity duration-500"></div>
-              <div className="relative z-10">
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center mb-6 shadow-md text-primary">
-                  {feature.icon}
-                </div>
-                <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
-                <p className="text-muted-foreground">{feature.description}</p>
-              </div>
-            </div>)}
-        </div>
-        
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center mb-12">
           <div>
             <h3 className="text-2xl font-bold mb-4 flex items-center">
