@@ -20,54 +20,32 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+console.log('Diagnostic function loaded – awaiting requests.');
+
 serve(async (req: Request) => {
+  console.log(`[${new Date().toISOString()}] Received ${req.method} ${req.url}`);
+
   /* ─ OPTIONS pre-flight ─ */
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: cors })
+    console.log('Responding 200 to OPTIONS pre-flight');
+    return new Response('ok', { status: 200, headers: cors })
   }
 
   try {
-    // 1. Identify user from JWT coming through the proxy
-    const userClient = createClient(SUPA_URL, SUPA_ANON, {
-      global: { headers: { Authorization: req.headers.get('Authorization')! } },
-    })
-    const { data: { user } } = await userClient.auth.getUser()
-    if (!user) throw new Error('Authentication failed: invalid JWT.')
+    console.log('Inside TRY – intentionally throwing a test error');
+    throw new Error('Testing error logging! If you see this, core runtime works.');
+  } catch (error) {
+    console.error('--- DIAGNOSTIC CRASH REPORT ---');
+    console.error('Error Name   :', (error as Error).name);
+    console.error('Error Message:', (error as Error).message);
+    console.error('--- END DIAGNOSTIC CRASH REPORT ---');
 
-    // 2. Create Browserbase context
-    const bbHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${BB_KEY}` }
-
-    const ctxRes = await fetch(`${BB_API_URL}/contexts`, {
-      method: 'POST', headers: bbHeaders,
-      body: json({ projectId: BB_PROJ, name: `ctx-${user.id}` }),
-    })
-    if (!ctxRes.ok) throw new Error(await ctxRes.text())
-    const { id: contextId } = await ctxRes.json()
-
-    // 3. Create session (persist = true)
-    const sesRes = await fetch(`${BB_API_URL}/sessions`, {
-      method: 'POST', headers: bbHeaders,
-      body: json({ projectId: BB_PROJ, contextId, persist: true }),
-    })
-    if (!sesRes.ok) throw new Error(await sesRes.text())
-    const { connectUrl } = await sesRes.json()
-
-    // 4. Upsert into DB with service-role key
-    const admin = createClient(SUPA_URL, SERVICE_KEY)
-    const { error: dbErr } = await admin
-      .from('user_browserbase_contexts')
-      .upsert({ user_id: user.id, context_id: contextId, context_ready: false }, { onConflict: 'user_id' })
-    if (dbErr) throw dbErr
-
-    return new Response(json({ connectUrl, contextId }), {
-      status: 200,
-      headers: { ...cors, 'Content-Type': 'application/json' },
-    })
-  } catch (err: any) {
-    console.error('--- FUNCTION CRASH REPORT ---', err.message)
-    return new Response(json({ error: err.message }), {
-      status: 500,
-      headers: { ...cors, 'Content-Type': 'application/json' },
-    })
+    return new Response(
+      JSON.stringify({ error: `This is a test error: ${(error as Error).message}` }),
+      {
+        status: 500,
+        headers: { ...cors, 'Content-Type': 'application/json' },
+      },
+    );
   }
 }) 
