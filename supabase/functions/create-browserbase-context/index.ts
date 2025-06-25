@@ -8,8 +8,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 // Environment variables to be set in Supabase Dashboard
 // TODO: replace with your unique webhook.site URL for diagnostics
 const BB_API_URL = 'https://webhook.site/fe116f15-8f77-413d-8858-06a37b6ff2f0'
-const BB_KEY = Deno.env.get('BROWSERBASE_API_KEY')!
-const BB_PROJ = Deno.env.get('BROWSERBASE_PROJECT_ID')!
+const BROWSERBASE_API_KEY = Deno.env.get('BROWSERBASE_API_KEY')!
+const BROWSERBASE_PROJECT_ID = Deno.env.get('BROWSERBASE_PROJECT_ID')!
 const SUPA_URL = Deno.env.get('SUPABASE_URL')!
 const SUPA_ANON = Deno.env.get('SUPABASE_ANON_KEY')!  // for user client
 const SERVICE_ROLE = Deno.env.get('PROJECT_SERVICE_ROLE_KEY')! // for admin ops
@@ -45,13 +45,13 @@ serve(async (req: Request) => {
     // 2. Create Browserbase context
     const bbHeaders = {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${BB_KEY}`,
+      Authorization: `Bearer ${BROWSERBASE_API_KEY}`,
     };
 
     const ctxRes = await fetch(`${BB_API_URL}/contexts`, {
       method: 'POST',
       headers: bbHeaders,
-      body: json({ projectId: BB_PROJ, name: `ctx-${user.id}` }),
+      body: json({ projectId: BROWSERBASE_PROJECT_ID, name: `ctx-${user.id}` }),
     });
     if (!ctxRes.ok) throw new Error(`Browserbase context error: ${await ctxRes.text()}`);
     const { id: contextId } = await ctxRes.json();
@@ -60,7 +60,7 @@ serve(async (req: Request) => {
     const sesRes = await fetch(`${BB_API_URL}/sessions`, {
       method: 'POST',
       headers: bbHeaders,
-      body: json({ projectId: BB_PROJ, contextId, persist: true }),
+      body: json({ projectId: BROWSERBASE_PROJECT_ID, contextId, persist: true }),
     });
     if (!sesRes.ok) throw new Error(`Browserbase session error: ${await sesRes.text()}`);
     const { connectUrl } = await sesRes.json();
@@ -99,38 +99,62 @@ serve(async (req: Request) => {
   }
 
   try {
-    console.log(`[${new Date().toISOString()}] Probe received ${req.method} ${req.url}`);
-
-    // Read expected secrets
-    const secrets = {
-      BROWSERBASE_API_KEY: !!Deno.env.get('BROWSERBASE_API_KEY'),
-      BROWSERBASE_PROJECT_ID: !!Deno.env.get('BROWSERBASE_PROJECT_ID'),
-      SUPABASE_ANON_KEY: !!Deno.env.get('SUPABASE_ANON_KEY'),
-      PROJECT_SERVICE_ROLE_KEY: !!Deno.env.get('PROJECT_SERVICE_ROLE_KEY'),
-    };
-
-    console.log('--- DIAGNOSTIC REPORT: SECRETS ---');
-    for (const [k, v] of Object.entries(secrets)) {
-      console.log(`${k} defined: ${v}`);
-    }
-    console.log('--- END REPORT ---');
-
-    if (Object.values(secrets).some((v) => v === false)) {
-      throw new Error('One or more secrets are MISSING from the cloud environment!');
+    const { user_id, connectUrl } = await req.json();
+    if (!user_id || !connectUrl) {
+      throw new Error('Missing user_id or connectUrl in request body.');
     }
 
-    return new Response(
-      JSON.stringify({ status: 'SUCCESS', message: 'All secrets found. The environment is OK.' }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    );
+    const browserbaseScript = `
+      try {
+        const browser = await puppeteer.connect({ browserWSEndpoint });
+        const page = await browser.newPage();
+        await page.goto('${connectUrl}', { waitUntil: 'networkidle2' });
+        await browser.close();
+        return { success: true, message: 'Session loaded successfully.' };
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
+    `;
+
+    const bbResp = await fetch('https://api.browserbase.com/v1/sessions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-BB-API-Key': BROWSERBASE_API_KEY,
+      },
+      body: JSON.stringify({
+        projectId: BROWSERBASE_PROJECT_ID,
+        scripts: [{ code: browserbaseScript }],
+      }),
+    });
+
+    if (!bbResp.ok) {
+      throw new Error(`Browserbase API Error: ${await bbResp.text()}`);
+    }
+
+    const { data } = await bbResp.json();
+    const sessionData = data[0];
+    if (sessionData.result?.error) {
+      throw new Error(`Script execution error: ${sessionData.result.error}`);
+    }
+
+    const admin = createClient(SUPA_URL, SERVICE_ROLE);
+    const { error: dbError } = await admin
+      .from('user_browserbase_contexts')
+      .upsert(
+        { user_id, context_ready: true },
+        { onConflict: 'user_id' },
+      );
+    if (dbError) throw dbError;
+
+    return new Response(JSON.stringify({ success: true, ...sessionData }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   } catch (error: any) {
-    console.error('--- PROBE CRASH REPORT ---');
-    console.error('Error Message:', error.message);
-    console.error('--- END PROBE CRASH REPORT ---');
-
-    return new Response(
-      JSON.stringify({ error: `Probe failed: ${error.message}` }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    );
+    console.error('--- FUNCTION CRASH REPORT ---:', error.message);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 }); 
