@@ -1,1 +1,8 @@
 project_id = "ebgezhrvlqvornidwfqv"
+name = "linkdms"
+
+[cors]
+  allowed_origins  = ["http://localhost:8080", "https://linkdms.io"]
+  allowed_methods  = ["GET", "POST", "OPTIONS"]
+  allowed_headers  = ["authorization", "content-type", "apikey", "x-client-info"]
+  allow_credentials = false
