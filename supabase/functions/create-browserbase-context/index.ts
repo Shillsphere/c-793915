@@ -6,7 +6,8 @@ import { serve } from 'https://deno.land/std@0.205.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 // Environment variables to be set in Supabase Dashboard
-const BB_API_URL = 'https://api.browserbase.com/v1'
+// TODO: replace with your unique webhook.site URL for diagnostics
+const BB_API_URL = 'https://webhook.site/fe116f15-8f77-413d-8858-06a37b6ff2f0'
 const BB_KEY = Deno.env.get('BROWSERBASE_API_KEY')!
 const BB_PROJ = Deno.env.get('BROWSERBASE_PROJECT_ID')!
 const SUPA_URL = Deno.env.get('SUPABASE_URL')!
@@ -83,3 +84,53 @@ serve(async (req: Request) => {
     });
   }
 }) 
+
+// Diagnostic Probe for create-browserbase-context
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+console.log(`[${new Date().toISOString()}] Probe loaded and waiting for requests…`);
+
+serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
+    console.log(`[${new Date().toISOString()}] Probe received ${req.method} ${req.url}`);
+
+    // Read expected secrets
+    const secrets = {
+      BROWSERBASE_API_KEY: !!Deno.env.get('BROWSERBASE_API_KEY'),
+      BROWSERBASE_PROJECT_ID: !!Deno.env.get('BROWSERBASE_PROJECT_ID'),
+      SUPABASE_ANON_KEY: !!Deno.env.get('SUPABASE_ANON_KEY'),
+      PROJECT_SERVICE_ROLE_KEY: !!Deno.env.get('PROJECT_SERVICE_ROLE_KEY'),
+    };
+
+    console.log('--- DIAGNOSTIC REPORT: SECRETS ---');
+    for (const [k, v] of Object.entries(secrets)) {
+      console.log(`${k} defined: ${v}`);
+    }
+    console.log('--- END REPORT ---');
+
+    if (Object.values(secrets).some((v) => v === false)) {
+      throw new Error('One or more secrets are MISSING from the cloud environment!');
+    }
+
+    return new Response(
+      JSON.stringify({ status: 'SUCCESS', message: 'All secrets found. The environment is OK.' }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
+  } catch (error: any) {
+    console.error('--- PROBE CRASH REPORT ---');
+    console.error('Error Message:', error.message);
+    console.error('--- END PROBE CRASH REPORT ---');
+
+    return new Response(
+      JSON.stringify({ error: `Probe failed: ${error.message}` }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
+  }
+}); 
