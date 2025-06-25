@@ -1,7 +1,4 @@
 project_id = "ebgezhrvlqvornidwfqv"
 
-[functions]
-  verify_jwt = true  # default for all functions
-
 [functions.create-browserbase-context]
   verify_jwt = false
