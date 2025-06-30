@@ -1,0 +1,16 @@
+# LinkDMS Worker Service Environment Variables
+# Copy this content to a .env file and fill in your actual values
+
+# Browserbase Configuration
+BROWSERBASE_API_KEY=your_browserbase_api_key_here
+BROWSERBASE_PROJECT_ID=your_browserbase_project_id_here
+
+# OpenAI Configuration (for Stagehand AI agent)
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Supabase Configuration (for logging results)
+SUPABASE_URL=your_supabase_project_url_here
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
+
+# Server Configuration
+PORT=3001 
