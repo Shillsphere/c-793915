@@ -1,0 +1,1 @@
+ALTER TABLE public.campaigns ADD COLUMN IF NOT EXISTS search_page INTEGER NOT NULL DEFAULT 0; 

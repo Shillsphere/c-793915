@@ -1,0 +1,22 @@
+{
+  "name": "linkdms-worker",
+  "version": "1.0.0",
+  "description": "LinkDMS LinkedIn Automation Worker Service",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["linkedin", "automation", "stagehand", "browserbase"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@browserbasehq/stagehand": "^2.4.0",
+    "@supabase/supabase-js": "^2.45.7",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "zod": "^3.24.1"
+  }
+}

@@ -7,34 +7,31 @@ import { componentTagger } from "lovable-tagger";
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
+  if (!env.VITE_SUPABASE_URL) {
+    throw new Error('VITE_SUPABASE_URL is not defined in your .env file');
+  }
+
   return {
-    base: mode === 'production' ? '/' : '/',
-    server: {
-      host: "::",
-      port: 8080,
+  base: mode === 'production' ? '/' : '/',
+  server: {
+    host: "::",
+    port: 8080,
       proxy: {
         '/api': {
-          target: env.VITE_SUPABASE_URL,
+          target: `${env.VITE_SUPABASE_URL}/functions/v1`,
           changeOrigin: true,
-          rewrite: (p) => p.replace(/^\/api/, '/functions/v1'),
-          configure: (proxy) => {
-            proxy.on('proxyReq', (proxyReq) => {
-              if (env.SUPABASE_SERVICE_ROLE) {
-                proxyReq.setHeader('Authorization', `Bearer ${env.SUPABASE_SERVICE_ROLE}`);
-              }
-            });
-          }
-        }
+          rewrite: (p) => p.replace(/^\/api/, ''),
+        },
       }
-    },
-    plugins: [
-      react(),
+  },
+  plugins: [
+    react(),
       mode === 'development' && componentTagger(),
-    ].filter(Boolean),
-    resolve: {
-      alias: {
-        "@": path.resolve(__dirname, "./src"),
-      },
+  ].filter(Boolean),
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
     },
+  },
   };
 });

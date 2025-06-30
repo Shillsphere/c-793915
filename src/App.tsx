@@ -9,15 +9,22 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import Index from "./pages/Index";
 import HowPage from "./pages/HowPage";
 import NotFound from "./pages/NotFound";
-import Profile from "./pages/Profile";
-import Import from "./pages/Import";
-import SearchPage from "./pages/SearchPage";
+import Dashboard from "./pages/Dashboard";
+import CampaignManager from "./pages/CampaignManager";
 import Settings from "./pages/Settings";
-import ManagePage from "./pages/ManagePage";
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes (was cacheTime)
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 // Page transition wrapper
 const PageTransition = ({ children }: { children: React.ReactNode }) => {
@@ -37,80 +44,15 @@ const PageTransition = ({ children }: { children: React.ReactNode }) => {
 const AppRoutes = () => {
   return (
     <Routes>
-      <Route 
-        path="/" 
-        element={
-          <PageTransition>
-            <Index />
-          </PageTransition>
-        } 
-      />
-      <Route 
-        path="/how" 
-        element={
-          <PageTransition>
-            <HowPage />
-          </PageTransition>
-        } 
-      />
-      <Route
-        path="/manage" 
-        element={
-          <PageTransition>
-            <ProtectedRoute>
-              <ManagePage />
-            </ProtectedRoute>
-          </PageTransition>
-        } 
-      />
-      <Route 
-        path="/profile" 
-        element={
-          <PageTransition>
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
-          </PageTransition>
-        } 
-      />
-      <Route 
-        path="/import" 
-        element={
-          <PageTransition>
-            <ProtectedRoute>
-              <Import />
-            </ProtectedRoute>
-          </PageTransition>
-        } 
-      />
-      <Route 
-        path="/search" 
-        element={
-          <PageTransition>
-            <ProtectedRoute>
-              <SearchPage />
-            </ProtectedRoute>
-          </PageTransition>
-        } 
-      />
-      <Route 
-        path="/settings" 
-        element={
-          <PageTransition>
-            <ProtectedRoute>
-              <Settings />
-            </ProtectedRoute>
-          </PageTransition>
-        } 
-      />
-      <Route 
-        path="*" 
-        element={
-          <PageTransition>
-            <NotFound />
-          </PageTransition>
-        } 
-      />
+      <Route path="/" element={<PageTransition><Index /></PageTransition>} />
+      <Route path="/how" element={<PageTransition><HowPage /></PageTransition>} />
+      
+      {/* Protected Routes */}
+      <Route path="/dashboard" element={<PageTransition><ProtectedRoute><Dashboard /></ProtectedRoute></PageTransition>} />
+      <Route path="/campaigns" element={<PageTransition><ProtectedRoute><CampaignManager /></ProtectedRoute></PageTransition>} />
+      <Route path="/settings" element={<PageTransition><ProtectedRoute><Settings /></ProtectedRoute></PageTransition>} />
+
+      <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
     </Routes>
   );
 };
