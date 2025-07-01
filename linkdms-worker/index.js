@@ -5,6 +5,7 @@ import 'dotenv/config';
 import { Stagehand } from '@browserbasehq/stagehand';
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import OpenAI from 'openai';
 
 const app = express();
 app.use(express.json());
@@ -361,7 +362,29 @@ async function withRetry(fn, maxRetries = 3, baseDelay = 1000) {
   }
 }
 
-// Send connection with optional personalized note
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+async function genMessage(firstName, campaign) {
+  let msg = campaign.template || '';
+  if (msg.toLowerCase().startsWith('ai:')) {
+    const prompt = msg.slice(3).trim().replace('{name}', firstName);
+    try {
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'You are an expert LinkedIn networker who writes concise, friendly connection requests.' },
+          { role: 'user', content: prompt }
+        ],
+        max_tokens: 60,
+      });
+      msg = completion.choices[0]?.message?.content?.trim() || msg;
+    } catch (err) {
+      console.warn('[Worker] OpenAI generation failed, falling back to template:', err.message);
+    }
+  }
+  return msg.replace('{name}', firstName);
+}
+
 async function sendConnectionRequest(page, target, campaign) {
   try {
     await page.goto(target.profileUrl, { waitUntil: 'domcontentloaded' });
@@ -378,7 +401,7 @@ async function sendConnectionRequest(page, target, campaign) {
       await page.act('Click Add a note');
       await page.waitForTimeout(500);
       const firstName = target.name.split(' ')[0];
-      const personalized = campaign.template.replace('{name}', firstName);
+      const personalized = await genMessage(firstName, campaign);
       await page.act(`Type the message: "${personalized}"`);
       await page.waitForTimeout(500);
     }
