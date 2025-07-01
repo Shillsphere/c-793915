@@ -31,7 +31,7 @@ app.post('/run-linkedin-job', async (req, res) => {
 
   const { data: campaign, error: cErr } = await db
     .from('campaigns')
-    .select('id,user_id,daily_limit,keywords,search_page,targeting_criteria')
+    .select('id,user_id,daily_limit,keywords,search_page,targeting_criteria,template')
     .eq('id', campaign_id)
     .single();
   if (cErr || !campaign) {
