@@ -136,33 +136,31 @@ export const CampaignFormModal = ({ isOpen, onClose }: { isOpen: boolean, onClos
             </DialogHeader>
             <form onSubmit={handleSubmit(onSubmit)}>
               <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="campaign_name" className="text-right">
-                    Name
-                  </Label>
-                  <Input id="campaign_name" {...register("campaign_name")} className="col-span-3" />
-                  {errors.campaign_name && <p className="col-span-4 text-red-500 text-sm">{errors.campaign_name.message}</p>}
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="keywords" className="text-right">
-                    Keywords
-                  </Label>
-                  <Input id="keywords" {...register("keywords")} className="col-span-3" />
-                  {errors.keywords && <p className="col-span-4 text-red-500 text-sm">{errors.keywords.message}</p>}
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="daily_limit" className="text-right">
-                    Daily Limit
-                  </Label>
-                  <Input id="daily_limit" type="number" {...register("daily_limit", { valueAsNumber: true })} defaultValue={20} className="col-span-3" />
-                  {errors.daily_limit && <p className="col-span-4 text-red-500 text-sm">{errors.daily_limit.message}</p>}
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="weekly_limit" className="text-right">
-                    Weekly Limit
-                  </Label>
-                  <Input id="weekly_limit" type="number" {...register("weekly_limit", { valueAsNumber: true })} defaultValue={100} className="col-span-3" />
-                  {errors.weekly_limit && <p className="col-span-4 text-red-500 text-sm">{errors.weekly_limit.message}</p>}
+                {/* Basic Campaign Details */}
+                <div className="space-y-4">
+                  <div className="flex flex-col space-y-1">
+                    <Label htmlFor="campaign_name">Name</Label>
+                    <Input id="campaign_name" {...register("campaign_name")} />
+                    {errors.campaign_name && <p className="text-red-500 text-sm">{errors.campaign_name.message}</p>}
+                  </div>
+
+                  <div className="flex flex-col space-y-1">
+                    <Label htmlFor="keywords">Keywords</Label>
+                    <Input id="keywords" {...register("keywords")} />
+                    {errors.keywords && <p className="text-red-500 text-sm">{errors.keywords.message}</p>}
+                  </div>
+
+                  <div className="flex flex-col space-y-1">
+                    <Label htmlFor="daily_limit">Daily Limit</Label>
+                    <Input id="daily_limit" type="number" {...register("daily_limit", { valueAsNumber: true })} defaultValue={20} />
+                    {errors.daily_limit && <p className="text-red-500 text-sm">{errors.daily_limit.message}</p>}
+                  </div>
+
+                  <div className="flex flex-col space-y-1">
+                    <Label htmlFor="weekly_limit">Weekly Limit</Label>
+                    <Input id="weekly_limit" type="number" {...register("weekly_limit", { valueAsNumber: true })} defaultValue={100} />
+                    {errors.weekly_limit && <p className="text-red-500 text-sm">{errors.weekly_limit.message}</p>}
+                  </div>
                 </div>
                 {/* -------- Advanced Targeting Accordion ---------- */}
                 <h3 className="text-lg font-semibold border-t pt-4">Advanced Targeting</h3>
