@@ -196,10 +196,8 @@ function buildAdvancedSearchUrl(criteria = {}, keywords = '') {
   const params = new URLSearchParams();
 
   // Keywords always first
-  if (keywords) {
-    const cleaned = keywords.replace(/[\(\)"]+/g, '').trim();
-    params.append('keywords', encodeURIComponent(cleaned));
-  }
+  const cleaned = keywords.replace(/[\(\)"]+/g, '').trim();
+  params.append('keywords', cleaned);
 
   /* ---------------- Location ---------------- */
   if (criteria.demographics?.location) {
