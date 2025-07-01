@@ -105,6 +105,24 @@ app.post('/run-linkedin-job', async (req, res) => {
 
     const qualified = [];
 
+    if (!initialResults.people.length) {
+      // Fallback: click Connect buttons directly in search results page like edge function
+      const limit = Math.min(5, campaign.daily_limit || 10);
+      let sentDirect = 0;
+      while (sentDirect < limit) {
+        const obs = await page.observe('Locate all visible Connect buttons in search results');
+        if (!obs?.length) break;
+        await page.act('Click the Connect button next to the first result');
+        await page.act('Click the blue Send invitation button in the modal');
+        sentDirect++;
+        await page.waitForTimeout(getRandomDelay(800, 2000));
+        if (sentDirect < limit) await page.act('Scroll down slightly to reveal more results');
+      }
+      console.log(`[Worker] Sent ${sentDirect} invites via fallback on search page`);
+      res.status(200).json({ success: true, invitesSent: sentDirect, campaignId: campaign_id });
+      return;
+    }
+
     /* ----------------- 3. Drill into each profile ----------------- */
     for (const person of initialResults.people) {
       if (qualified.length >= campaign.daily_limit) break;
