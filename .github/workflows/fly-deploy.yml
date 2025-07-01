@@ -15,8 +15,6 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@v1
         with:
           version: latest
-          # Pass the Fly token directly so flyctl can authenticate during build
-          token: ${{ secrets.FLY_API_TOKEN }}
 
       - run: flyctl deploy --remote-only
         env:
