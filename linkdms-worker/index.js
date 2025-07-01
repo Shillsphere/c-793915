@@ -6,6 +6,7 @@ import { Stagehand } from '@browserbasehq/stagehand';
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import OpenAI from 'openai';
+import crypto from 'node:crypto';
 
 const app = express();
 app.use(express.json());
@@ -422,6 +423,23 @@ async function sendConnectionRequest(page, target, campaign) {
     }
 
     await page.act('Click the Send invitation button');
+
+    // Persist invite
+    try {
+      const inviteId = crypto.randomUUID();
+      const prospectLinkedInId = target.profileUrl.split('/in/')[1]?.split(/[/?]/)[0] ?? null;
+      await db.from('invites').insert({
+        id: inviteId,
+        campaign_id: campaign.id,
+        user_id: campaign.user_id,
+        prospect_linkedin_id: prospectLinkedInId,
+        note: campaign.template ?? null,
+        sent_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn('[Worker] Failed to log invite:', e.message);
+    }
+
     return true;
   } catch (err) {
     console.warn(`[Worker] Could not connect with ${target.name}:`, err.message);
