@@ -26,7 +26,7 @@ serve(async (req: Request) => {
     // 2. Start a session attached to that context so cookies persist
     const session = await bb.sessions.create({
       projectId,
-      browserSettings: {
+      browserSettings: { 
         context: { id: context.id, persist: true },
         proxy: false, // Bypass Browserbase proxy to avoid tunnel failures
       },

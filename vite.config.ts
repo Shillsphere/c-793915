@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
   if (!env.VITE_SUPABASE_URL) {
-    throw new Error('VITE_SUPABASE_URL is not defined in your .env file');
+    env.VITE_SUPABASE_URL = 'https://ebgezhrvlqvornidwfqv.supabase.co';
   }
 
   return {

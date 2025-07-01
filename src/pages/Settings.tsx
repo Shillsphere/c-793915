@@ -83,7 +83,7 @@ export default function Settings() {
         <Loader2 className="animate-spin" /> Loading settings...
       </div>
     );
-  }
+    }
 
   return (
     <div className="max-w-2xl mx-auto px-4 pt-36 pb-16">
@@ -105,10 +105,10 @@ export default function Settings() {
             ) : (
               <div className="flex items-center gap-2 text-red-600">
                 <XCircle size={16} /> Not Connected
-              </div>
+            </div>
             )}
           </div>
-
+          
           {/* STATE: Not connected, idle */}
           {!isReady && !liveViewUrl && (
             <Button
@@ -122,7 +122,7 @@ export default function Settings() {
                 </>
               ) : (
                 "Connect Account"
-              )}
+          )}
             </Button>
           )}
 
@@ -141,9 +141,9 @@ export default function Settings() {
                   <Input value={liveViewUrl!} readOnly className="flex-1" />
                   <Button variant="outline" size="icon" onClick={copyUrl}>
                     <Copy size={16} />
-                  </Button>
+                </Button>
                   <Button variant="secondary" onClick={() => window.open(liveViewUrl!, "_blank")}>Open in New Tab</Button>
-                </div>
+              </div>
                 <div className="w-full h-[600px] border rounded-lg overflow-hidden bg-gray-100">
                   <iframe
                     src={liveViewUrl}
@@ -158,10 +158,10 @@ export default function Settings() {
                   <Input value={LINKEDIN_LOGIN_URL} readOnly className="flex-1" />
                   <Button variant="outline" size="icon" onClick={() => {navigator.clipboard.writeText(LINKEDIN_LOGIN_URL); toast.success("LinkedIn login URL copied!");}}>
                     <Copy size={16} />
-                  </Button>
+                    </Button>
                   <Button variant="secondary" onClick={() => window.open(LINKEDIN_LOGIN_URL, "_blank")}>Open linkedin.com/login</Button>
                 </div>
-              </div>
+                  </div>
 
               <Button
                 onClick={() => finalizeConnection()}
