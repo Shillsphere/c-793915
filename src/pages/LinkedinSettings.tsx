@@ -51,16 +51,16 @@ export default function LinkedinSettings() {
           </CardHeader>
           <CardContent className="space-y-4">
             {isLoading ? (
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertDescription>
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription>
                   Checking connection status...
-                </AlertDescription>
-              </Alert>
+                  </AlertDescription>
+                </Alert>
             ) : isReady ? (
-              <Alert className="border-green-200 bg-green-50">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <AlertDescription className="text-green-800">
+                <Alert className="border-green-200 bg-green-50">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800">
                   ✅ Connected - Your LinkedIn account is ready for automation
                 </AlertDescription>
               </Alert>
@@ -69,18 +69,18 @@ export default function LinkedinSettings() {
                 <XCircle className="h-4 w-4 text-red-600" />
                 <AlertDescription className="text-red-800">
                   ❌ Not Connected - Please contact support to set up your LinkedIn connection
-                </AlertDescription>
-              </Alert>
+                  </AlertDescription>
+                </Alert>
             )}
-            
+                
             <div className="text-sm text-gray-600 space-y-2">
               <p>
                 <strong>How it works:</strong> Your LinkedIn connection is set up through a secure, 
                 one-time administrative process to ensure maximum reliability and security.
-              </p>
+                </p>
               <p>
                 If you need to connect or reconnect your LinkedIn account, please contact our support team.
-              </p>
+                </p>
             </div>
           </CardContent>
         </Card>
