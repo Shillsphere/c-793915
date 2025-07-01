@@ -150,10 +150,12 @@ app.post('/run-linkedin-job', async (req, res) => {
       if (success) {
         sent++;
         await page.waitForTimeout(getRandomDelay(3000, 8000));
+      } else {
+        if (stagehand.isClosed()) break;
       }
     }
 
-    await stagehand.close();
+    await safeClose(stagehand);
     console.log(`[Worker] 🧹 Session closed. Invites sent: ${sent}`);
 
     res.status(200).json({
@@ -166,7 +168,7 @@ app.post('/run-linkedin-job', async (req, res) => {
   } catch (error) {
     console.error(`[Worker] ❌ Job failed:`, error.message);
     try {
-      if (stagehand) await stagehand.close();
+      await safeClose(stagehand);
     } catch (closeError) {
       console.error(`[Worker] Error closing Stagehand:`, closeError.message);
     }
@@ -194,7 +196,10 @@ function buildAdvancedSearchUrl(criteria = {}, keywords = '') {
   const params = new URLSearchParams();
 
   // Keywords always first
-  if (keywords) params.append('keywords', keywords);
+  if (keywords) {
+    const cleaned = keywords.replace(/[\(\)"]+/g, '').trim();
+    params.append('keywords', encodeURIComponent(cleaned));
+  }
 
   /* ---------------- Location ---------------- */
   if (criteria.demographics?.location) {
@@ -405,4 +410,13 @@ async function sendConnectionRequest(page, target, campaign) {
   }
 }
 
-function nonEmpty(arr){return arr.filter(v=>v && v.toLowerCase()!=='any');} 
+function nonEmpty(arr){return arr.filter(v=>v && v.toLowerCase()!=='any');}
+
+// Utility to close stagehand safely once
+async function safeClose(sh) {
+  try {
+    if (sh && typeof sh.isClosed === 'function' && !sh.isClosed()) {
+      await sh.close();
+    }
+  } catch (_) {}
+} 
