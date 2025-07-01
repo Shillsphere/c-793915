@@ -5,11 +5,12 @@
 # Install dependencies and build the React/Vite project
     COPY package*.json ./
     COPY tsconfig*.json vite.config.ts ./
+    COPY tailwind.config.ts postcss.config.js ./
     COPY public ./public
     COPY src ./src
     COPY index.html ./
 
-    RUN npm ci
+    RUN npm ci --include=dev
 RUN npm run build        # outputs to /app/dist
 
 # ---- production stage ----
