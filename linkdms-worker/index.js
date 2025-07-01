@@ -215,42 +215,33 @@ function buildAdvancedSearchUrl(criteria = {}, keywords = '') {
   }
 
   /* ---------------- Industry ---------------- */
-  if (criteria.professional?.industries?.length) {
+  let inds = criteria.professional?.industries;
+  if (typeof inds === 'string') inds = nonEmpty(inds.split(',').map(s=>s.trim()));
+  if (Array.isArray(inds) && inds.length) {
     const industryMappings = {
-      'technology': '["4"]',
-      'financial services': '["43"]',
-      'healthcare': '["14"]',
-      'education': '["69"]',
-      'consulting': '["9"]',
-      'manufacturing': '["25"]',
-      'retail': '["27"]',
-      'media': '["3"]',
-      'real estate': '["44"]',
-      'automotive': '["53"]'
+      'technology': '"4"',
+      'financial services': '"43"',
+      'healthcare': '"14"',
+      'education': '"69"',
+      'consulting': '"9"',
+      'manufacturing': '"25"',
+      'retail': '"27"',
+      'media': '"3"',
+      'real estate': '"44"',
+      'automotive': '"53"'
     };
-    const urns = criteria.professional.industries
-      .map((i) => industryMappings[i.toLowerCase()])
-      .filter(Boolean);
+    const urns = inds.map(i=>industryMappings[i.toLowerCase()]).filter(Boolean);
     if (urns.length) params.append('industryUrn', `[${urns.join(',')}]`);
   }
 
   /* ---------------- Seniority ---------------- */
-  if (criteria.professional?.seniority_levels?.length) {
+  let seniors = criteria.professional?.seniority_levels;
+  if (typeof seniors === 'string') seniors = nonEmpty(seniors.split(',').map(s=>s.trim()));
+  if (Array.isArray(seniors) && seniors.length) {
     const seniorityMappings = {
-      'entry': '["1"]',
-      'associate': '["2"]',
-      'mid-senior': '["3"]',
-      'director': '["4"]',
-      'executive': '["5"]',
-      'senior': '["6"]',
-      'owner': '["7"]',
-      'partner': '["8"]',
-      'cxo': '["9"]',
-      'unpaid': '["10"]'
+      'entry':'"1"','associate':'"2"','mid-senior':'"3"','director':'"4"','executive':'"5"','senior':'"6"','owner':'"7"','partner':'"8"','cxo':'"9"','unpaid':'"10"'
     };
-    const urns = criteria.professional.seniority_levels
-      .map((l) => seniorityMappings[l.toLowerCase()])
-      .filter(Boolean);
+    const urns = seniors.map(l=>seniorityMappings[l.toLowerCase()]).filter(Boolean);
     if (urns.length) params.append('seniorityLevel', `[${urns.join(',')}]`);
   }
 
@@ -412,4 +403,6 @@ async function sendConnectionRequest(page, target, campaign) {
     console.warn(`[Worker] Could not connect with ${target.name}:`, err.message);
     return false;
   }
-} 
+}
+
+function nonEmpty(arr){return arr.filter(v=>v && v.toLowerCase()!=='any');} 
