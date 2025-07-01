@@ -171,9 +171,9 @@ export const CampaignFormModal = ({ isOpen, onClose }: { isOpen: boolean, onClos
                     <AccordionItem value="demographics">
                       <AccordionTrigger>Demographics</AccordionTrigger>
                       <AccordionContent className="space-y-4 p-2">
-                        <div>
-                          <Label>Minimum Years of Experience</Label>
-                          <Input type="number" {...register("targeting_criteria.demographics.min_experience_years", { valueAsNumber: true })} />
+                          <div>
+                            <Label>Minimum Years of Experience</Label>
+                            <Input type="number" {...register("targeting_criteria.demographics.min_experience_years", { valueAsNumber: true })} />
                         </div>
                         <div>
                           <Label>Location (e.g., United States)</Label>

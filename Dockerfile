@@ -1,15 +1,15 @@
 # ---- build stage ----
-FROM node:20-alpine AS build
-WORKDIR /app
+    FROM node:20-alpine AS build
+    WORKDIR /app
 
 # Install dependencies and build the React/Vite project
-COPY package*.json ./
-COPY tsconfig*.json vite.config.ts ./
-COPY public ./public
-COPY src ./src
-COPY index.html ./
+    COPY package*.json ./
+    COPY tsconfig*.json vite.config.ts ./
+    COPY public ./public
+    COPY src ./src
+    COPY index.html ./
 
-RUN npm ci
+    RUN npm ci
 RUN npm run build        # outputs to /app/dist
 
 # ---- production stage ----
