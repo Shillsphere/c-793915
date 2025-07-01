@@ -22,7 +22,7 @@ const nonEmptyStringArray = (s: string): string[] =>
   s
     .split(',')
     .map((v) => v.trim())
-    .filter((v) => v.length);
+    .filter((v) => v.length && v.toLowerCase() !== 'any');
 
 const campaignSchema = z.object({
   campaign_name: z.string().min(1, "Campaign name is required"),
@@ -61,7 +61,7 @@ const campaignSchema = z.object({
 const deepClean = (obj: any) => {
   if (obj === null || obj === undefined) return undefined;
   if (Array.isArray(obj)) {
-    const cleaned = obj.map(deepClean).filter((v) => v !== undefined);
+    const cleaned = obj.map(deepClean).filter((v) => v !== undefined && v !== 'any');
     return cleaned.length ? cleaned : undefined;
   }
   if (typeof obj === 'object') {
@@ -72,6 +72,7 @@ const deepClean = (obj: any) => {
     });
     return Object.keys(cleanedObj).length ? cleanedObj : undefined;
   }
+  if (typeof obj === 'string' && obj.toLowerCase() === 'any') return undefined;
   return obj;
 };
 
