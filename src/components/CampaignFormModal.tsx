@@ -37,19 +37,19 @@ const campaignSchema = z.object({
           min_experience_years: z.coerce.number().optional(),
           max_experience_years: z.coerce.number().optional(),
           location: z.string().optional(),
-          gender_keywords: z.array(z.string()).optional(),
+          gender_keywords: z.union([z.string(), z.array(z.string())]).optional(),
         })
         .partial()
         .optional(),
       professional: z
         .object({
-          industries: z.array(z.string()).optional(),
-          seniority_levels: z.array(z.string()).optional(),
+          industries: z.union([z.string(), z.array(z.string())]).optional(),
+          seniority_levels: z.union([z.string(), z.array(z.string())]).optional(),
           company_size: z.string().optional(),
-          required_keywords: z.array(z.string()).optional(),
-          excluded_keywords: z.array(z.string()).optional(),
-          current_job_titles: z.array(z.string()).optional(),
-          target_companies: z.array(z.string()).optional(),
+          required_keywords: z.union([z.string(), z.array(z.string())]).optional(),
+          excluded_keywords: z.union([z.string(), z.array(z.string())]).optional(),
+          current_job_titles: z.union([z.string(), z.array(z.string())]).optional(),
+          target_companies: z.union([z.string(), z.array(z.string())]).optional(),
         })
         .partial()
         .optional(),
