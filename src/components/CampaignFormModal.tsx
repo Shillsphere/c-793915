@@ -30,6 +30,7 @@ const campaignSchema = z.object({
   template: z.string().min(1, "Message template is required"),
   daily_limit: z.coerce.number().min(1, "Daily limit must be at least 1"),
   weekly_limit: z.coerce.number().min(1, "Weekly limit must be at least 1"),
+  cta_mode: z.enum(["connect_only", "connect_with_note", "connect_then_followup"]),
   targeting_criteria: z
     .object({
       demographics: z
@@ -101,6 +102,7 @@ export const CampaignFormModal = ({ isOpen, onClose }: { isOpen: boolean, onClos
 
     const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<z.infer<typeof campaignSchema>>({
         resolver: zodResolver(campaignSchema),
+        defaultValues: { cta_mode: "connect_only" }
     });
 
     const mutation = useMutation({
@@ -202,6 +204,17 @@ export const CampaignFormModal = ({ isOpen, onClose }: { isOpen: boolean, onClos
                     <Label htmlFor="weekly_limit">Weekly Limit</Label>
                     <Input id="weekly_limit" type="number" {...register("weekly_limit", { valueAsNumber: true })} defaultValue={100} />
                     {errors.weekly_limit && <p className="text-red-500 text-sm">{errors.weekly_limit.message}</p>}
+                  </div>
+
+                  {/* Connection Strategy */}
+                  <div className="flex flex-col space-y-1">
+                    <Label htmlFor="cta_mode">Connection Strategy</Label>
+                    <select id="cta_mode" className="border rounded-md px-2 py-1 bg-background" {...register("cta_mode")}> 
+                      <option value="connect_only">Just connect</option>
+                      <option value="connect_with_note">Connect with note</option>
+                      <option value="connect_then_followup">Connect then follow-up</option>
+                    </select>
+                    {errors.cta_mode && <p className="text-red-500 text-sm">{errors.cta_mode.message}</p>}
                   </div>
                 </div>
                 {/* -------- Advanced Targeting Accordion ---------- */}
