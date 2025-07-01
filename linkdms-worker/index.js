@@ -96,9 +96,12 @@ app.post('/run-linkedin-job', async (req, res) => {
     });
 
     const initialResults = await page.extract({
-      instruction: 'Extract all visible profiles, including their name, profile URL and if a Connect button is visible.',
+      instruction: 'For each visible search result person card, extract their name, the profile page URL (href that starts with "https://www.linkedin.com/in"), and whether a Connect button is visible.',
       schema: listSchema,
     });
+
+    // filter out results where profileUrl is not /in/
+    initialResults.people = initialResults.people.filter(p => p.profileUrl.includes('/in/'));
 
     const qualified = [];
 
