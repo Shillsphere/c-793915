@@ -165,6 +165,15 @@ export const CampaignFormModal = ({ isOpen, onClose }: { isOpen: boolean, onClos
                 <div className="flex flex-col space-y-1">
                   <Label htmlFor="template">Message Template</Label>
                   <Textarea id="template" {...register("template")} placeholder="Hi {name}, I'd love to connect..." />
+                  <p className="text-xs text-muted-foreground mt-1 space-y-1">
+                    <span className="block">Tips:</span>
+                    <ul className="list-disc list-inside space-y-0.5">
+                      <li>Use <code>{`{name}`}</code> to inject the prospect's first name.</li>
+                      <li>Start with <strong>ai:</strong> to let our AI write the note, e.g. <em>ai: Write a friendly 2-sentence invite to {`{name}`}</em>.</li>
+                      <li>Keep it under 300 characters for best acceptance rates.</li>
+                      <li>Focus on mutual value—why connecting helps them.</li>
+                    </ul>
+                  </p>
                   {errors.template && <p className="text-red-500 text-sm">{errors.template.message}</p>}
                 </div>
 
