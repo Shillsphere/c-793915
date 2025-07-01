@@ -33,7 +33,7 @@ app.post('/run-linkedin-job', async (req, res) => {
 
   const { data: campaign, error: cErr } = await db
     .from('campaigns')
-    .select('id,user_id,daily_limit,keywords,search_page,targeting_criteria,template')
+    .select('id,user_id,daily_limit,keywords,search_page,targeting_criteria,template,cta_mode')
     .eq('id', campaign_id)
     .single();
   if (cErr || !campaign) {
@@ -412,14 +412,16 @@ async function sendConnectionRequest(page, target, campaign) {
     await page.act('Click the Connect button');
     await page.waitForTimeout(getRandomDelay(1000, 2000));
 
-    const addNoteBtn = await page.observe('Look for Add a note option');
-    if (addNoteBtn?.length && campaign.template) {
-      await page.act('Click Add a note');
-      await page.waitForTimeout(500);
-      const firstName = target.name.split(' ')[0];
-      const personalized = await genMessage(firstName, campaign);
-      await page.act(`Type the message: "${personalized}"`);
-      await page.waitForTimeout(500);
+    if (campaign.cta_mode === 'connect_with_note' && campaign.template) {
+      const addNoteBtn = await page.observe('Look for Add a note option');
+      if (addNoteBtn?.length) {
+        await page.act('Click Add a note');
+        await page.waitForTimeout(500);
+        const firstName = target.name.split(' ')[0];
+        const personalized = await genMessage(firstName, campaign);
+        await page.act(`Type the message: "${personalized}"`);
+        await page.waitForTimeout(500);
+      }
     }
 
     await page.act('Click the Send invitation button');
@@ -438,6 +440,30 @@ async function sendConnectionRequest(page, target, campaign) {
       });
     } catch (e) {
       console.warn('[Worker] Failed to log invite:', e.message);
+    }
+
+    if (campaign.cta_mode === 'connect_then_followup' && campaign.template) {
+      await page.waitForTimeout(1500);
+      const toastMsgBtn = await page.observe('Look for Message button in the confirmation toast');
+      if (toastMsgBtn?.length) {
+        await page.act('Click the Message button');
+        await page.waitForTimeout(500);
+        const firstName = target.name.split(' ')[0];
+        const personalized = await genMessage(firstName, campaign);
+        await page.act(`Type the message: "${personalized}"`);
+        await page.act('Click Send');
+        // log message
+        try {
+          await db.from('messages').insert({
+            id: crypto.randomUUID(),
+            campaign_id: campaign.id,
+            user_id: campaign.user_id,
+            body: personalized,
+            prospect_linkedin_id: prospectLinkedInId,
+            sent_at: new Date().toISOString()
+          });
+        } catch(e){ console.warn('[Worker] Failed to log message:', e.message); }
+      }
     }
 
     return true;
