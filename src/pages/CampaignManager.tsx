@@ -92,7 +92,7 @@ const CampaignManager = () => {
   if (error) return <div>Error fetching campaigns: {error.message}</div>;
   
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pt-24">
        <div className="flex justify-between items-center">
          <h2 className="text-2xl font-bold">Your Campaigns</h2>
          <Button onClick={() => setIsModalOpen(true)}>
