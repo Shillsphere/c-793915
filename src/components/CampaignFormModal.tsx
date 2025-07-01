@@ -16,6 +16,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import { Textarea } from "@/components/ui/textarea";
 
 const nonEmptyStringArray = (s: string): string[] =>
   s
@@ -26,6 +27,7 @@ const nonEmptyStringArray = (s: string): string[] =>
 const campaignSchema = z.object({
   campaign_name: z.string().min(1, "Campaign name is required"),
   keywords: z.string().min(1, "Keywords are required"),
+  template: z.string().min(1, "Message template is required"),
   daily_limit: z.coerce.number().min(1, "Daily limit must be at least 1"),
   weekly_limit: z.coerce.number().min(1, "Weekly limit must be at least 1"),
   targeting_criteria: z
@@ -33,6 +35,7 @@ const campaignSchema = z.object({
       demographics: z
         .object({
           min_experience_years: z.coerce.number().optional(),
+          max_experience_years: z.coerce.number().optional(),
           location: z.string().optional(),
           gender_keywords: z.array(z.string()).optional(),
         })
@@ -42,6 +45,11 @@ const campaignSchema = z.object({
         .object({
           industries: z.array(z.string()).optional(),
           seniority_levels: z.array(z.string()).optional(),
+          company_size: z.string().optional(),
+          required_keywords: z.array(z.string()).optional(),
+          excluded_keywords: z.array(z.string()).optional(),
+          current_job_titles: z.array(z.string()).optional(),
+          target_companies: z.array(z.string()).optional(),
         })
         .partial()
         .optional(),
@@ -116,6 +124,23 @@ export const CampaignFormModal = ({ isOpen, onClose }: { isOpen: boolean, onClos
           formData.targeting_criteria.professional.industries = nonEmptyStringArray(formData.targeting_criteria.professional.industries as unknown as string);
         }
 
+        // Additional professional arrays
+        const prof = formData.targeting_criteria?.professional;
+        if (prof) {
+          if (prof.required_keywords && typeof prof.required_keywords === 'string') {
+            prof.required_keywords = nonEmptyStringArray(prof.required_keywords as unknown as string);
+          }
+          if (prof.excluded_keywords && typeof prof.excluded_keywords === 'string') {
+            prof.excluded_keywords = nonEmptyStringArray(prof.excluded_keywords as unknown as string);
+          }
+          if (prof.current_job_titles && typeof prof.current_job_titles === 'string') {
+            prof.current_job_titles = nonEmptyStringArray(prof.current_job_titles as unknown as string);
+          }
+          if (prof.target_companies && typeof prof.target_companies === 'string') {
+            prof.target_companies = nonEmptyStringArray(prof.target_companies as unknown as string);
+          }
+        }
+
         // remove empty / undefined fields
         const cleaned = {
           ...formData,
@@ -136,6 +161,13 @@ export const CampaignFormModal = ({ isOpen, onClose }: { isOpen: boolean, onClos
             </DialogHeader>
             <form onSubmit={handleSubmit(onSubmit)}>
               <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
+                {/* Template */}
+                <div className="flex flex-col space-y-1">
+                  <Label htmlFor="template">Message Template</Label>
+                  <Textarea id="template" {...register("template")} placeholder="Hi {name}, I'd love to connect..." />
+                  {errors.template && <p className="text-red-500 text-sm">{errors.template.message}</p>}
+                </div>
+
                 {/* Basic Campaign Details */}
                 <div className="space-y-4">
                   <div className="flex flex-col space-y-1">
@@ -172,6 +204,8 @@ export const CampaignFormModal = ({ isOpen, onClose }: { isOpen: boolean, onClos
                           <div>
                             <Label>Minimum Years of Experience</Label>
                             <Input type="number" {...register("targeting_criteria.demographics.min_experience_years", { valueAsNumber: true })} />
+                            <Label className="mt-2">Maximum Years of Experience</Label>
+                            <Input type="number" {...register("targeting_criteria.demographics.max_experience_years", { valueAsNumber: true })} />
                         </div>
                         <div>
                           <Label>Location (e.g., United States)</Label>
@@ -194,6 +228,26 @@ export const CampaignFormModal = ({ isOpen, onClose }: { isOpen: boolean, onClos
                         <div>
                           <Label>Seniority Levels (comma-separated)</Label>
                           <Input placeholder="e.g., Manager, Director" {...register("targeting_criteria.professional.seniority_levels")} />
+                        </div>
+                        <div>
+                          <Label>Company Size</Label>
+                          <Input placeholder="e.g., Startup, Small, Medium, Large, Enterprise" {...register("targeting_criteria.professional.company_size")} />
+                        </div>
+                        <div>
+                          <Label>Required Keywords (comma-separated)</Label>
+                          <Input placeholder="e.g., AI, Machine Learning" {...register("targeting_criteria.professional.required_keywords")} />
+                        </div>
+                        <div>
+                          <Label>Excluded Keywords (comma-separated)</Label>
+                          <Input placeholder="e.g., Intern, Trainee" {...register("targeting_criteria.professional.excluded_keywords")} />
+                        </div>
+                        <div>
+                          <Label>Current Job Titles (comma-separated)</Label>
+                          <Input placeholder="e.g., CEO, Founder" {...register("targeting_criteria.professional.current_job_titles")} />
+                        </div>
+                        <div>
+                          <Label>Target Companies (comma-separated)</Label>
+                          <Input placeholder="e.g., Google, Microsoft" {...register("targeting_criteria.professional.target_companies")} />
                         </div>
                       </AccordionContent>
                     </AccordionItem>
