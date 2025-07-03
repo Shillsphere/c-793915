@@ -97,7 +97,7 @@ async function detectNewConnections(page, campaign, lastCheckTime) {
             .eq('campaign_id', campaign.id)
             .eq('prospect_profile_url', connection.profileUrl)
             .eq('follow_up_status', 'pending')
-            .single();
+            .maybeSingle();
             
           if (existingFollowup) {
             // Update the connection as accepted
@@ -235,8 +235,8 @@ const followUpSafetyMonitor = {
       .eq('follow_up_status', 'sent')
       .gte('follow_up_sent_at', todayStart.toISOString());
     
-    if (todayCount >= this.maxDailyFollowUps) {
-      throw new Error(`Daily follow-up limit reached: ${todayCount}/${this.maxDailyFollowUps}`);
+    if ((todayCount ?? 0) >= this.maxDailyFollowUps) {
+      throw new Error(`Daily follow-up limit reached: ${todayCount ?? 0}/${this.maxDailyFollowUps}`);
     }
     
     // Check hourly limit  
@@ -247,8 +247,8 @@ const followUpSafetyMonitor = {
       .eq('follow_up_status', 'sent')
       .gte('follow_up_sent_at', oneHourAgo.toISOString());
     
-    if (hourlyCount >= this.maxHourlyFollowUps) {
-      throw new Error(`Hourly follow-up limit reached: ${hourlyCount}/${this.maxHourlyFollowUps}`);
+    if ((hourlyCount ?? 0) >= this.maxHourlyFollowUps) {
+      throw new Error(`Hourly follow-up limit reached: ${hourlyCount ?? 0}/${this.maxHourlyFollowUps}`);
     }
     
     // Check minimum delay
@@ -664,7 +664,7 @@ app.post('/run-linkedin-job', async (req, res) => {
     while (sent < remainingToday && pageNum <= pageCap) {
       // Generate a varied search URL for each page to get different results
       const variationIndex = (pageNum - 1) % 8; // Cycle through 8 keyword variations
-      const searchUrl = buildAdvancedSearchUrl(campaign.targeting_criteria || {}, searchKeywords, variationIndex);
+      const searchUrl = await buildAdvancedSearchUrl(campaign.targeting_criteria || {}, searchKeywords, variationIndex, campaign.id);
       const pageUrl = pageNum === 1 ? searchUrl : `${searchUrl}${searchUrl.includes('?') ? '&' : '?'}page=${pageNum}`;
       
       console.log(`[Worker] 📍 Page ${pageNum} (variation ${variationIndex}): ${pageUrl}`);
@@ -805,39 +805,52 @@ app.listen(PORT, '0.0.0.0', () => {
 
 // +++++++++++++ HELPER FUNCTIONS +++++++++++++
 
-// Generate keyword variations to avoid repetitive search results
-function generateKeywordVariations(originalKeywords, variationIndex = 0) {
+// AI-Enhanced keyword generation to avoid repetitive search results
+async function generateKeywordVariations(originalKeywords, variationIndex = 0, campaignId = null, useAI = false) {
+  // First try AI generation if enabled and we have OpenAI setup
+  if (useAI && process.env.OPENAI_API_KEY && variationIndex > 7) {
+    try {
+      const aiKeywords = await generateAIKeywords(originalKeywords, campaignId);
+      if (aiKeywords) {
+        console.log(`[Worker] 🤖 AI-generated keywords: "${originalKeywords}" → "${aiKeywords}"`);
+        return aiKeywords;
+      }
+    } catch (error) {
+      console.warn(`[Worker] ⚠️ AI keyword generation failed, falling back to variations:`, error.message);
+    }
+  }
+
   const baseTerms = originalKeywords.toLowerCase().split(/\s+/).filter(term => term.length > 2);
   
-  // Define professional synonyms and related terms
+  // Enhanced professional synonyms and related terms
   const synonymMappings = {
-    'director': ['leader', 'head', 'chief', 'vp', 'vice president', 'principal'],
-    'manager': ['supervisor', 'lead', 'coordinator', 'senior', 'team lead'],
-    'executive': ['officer', 'c-suite', 'leadership', 'senior executive', 'top management'],
-    'women': ['female', 'woman', 'she/her', 'ladies'],
-    'senior': ['experienced', 'veteran', 'seasoned', 'principal', 'lead'],
-    'engineer': ['developer', 'architect', 'technical', 'software'],
-    'marketing': ['brand', 'growth', 'digital marketing', 'marketing communications'],
-    'sales': ['business development', 'account', 'revenue', 'client relations'],
-    'finance': ['financial', 'accounting', 'treasury', 'investment'],
-    'operations': ['ops', 'operational', 'process', 'logistics'],
-    'technology': ['tech', 'digital', 'innovation', 'IT'],
-    'healthcare': ['medical', 'clinical', 'health', 'pharmaceutical'],
-    'consulting': ['advisory', 'strategy', 'consultant', 'professional services']
+    'director': ['leader', 'head', 'chief', 'vp', 'vice president', 'principal', 'head of'],
+    'manager': ['supervisor', 'lead', 'coordinator', 'senior', 'team lead', 'mgr'],
+    'executive': ['officer', 'c-suite', 'leadership', 'senior executive', 'top management', 'exec'],
+    'women': ['female', 'woman', 'she/her', 'ladies', 'womens'],
+    'senior': ['experienced', 'veteran', 'seasoned', 'principal', 'lead', 'sr'],
+    'engineer': ['developer', 'architect', 'technical', 'software', 'dev'],
+    'marketing': ['brand', 'growth', 'digital marketing', 'marketing communications', 'marcom'],
+    'sales': ['business development', 'account', 'revenue', 'client relations', 'bd'],
+    'finance': ['financial', 'accounting', 'treasury', 'investment', 'fintech'],
+    'operations': ['ops', 'operational', 'process', 'logistics', 'supply chain'],
+    'technology': ['tech', 'digital', 'innovation', 'IT', 'software'],
+    'healthcare': ['medical', 'clinical', 'health', 'pharmaceutical', 'biotech'],
+    'consulting': ['advisory', 'strategy', 'consultant', 'professional services', 'advisor']
   };
   
   // Industry-specific keyword expansions
   const industryExpansions = {
-    'startup': ['entrepreneur', 'founder', 'early stage', 'innovation'],
-    'enterprise': ['corporate', 'large company', 'fortune 500', 'established'],
-    'finance': ['banking', 'investment', 'capital markets', 'fintech'],
-    'healthcare': ['biotech', 'pharma', 'medical device', 'health tech'],
-    'education': ['academia', 'university', 'training', 'learning'],
-    'retail': ['ecommerce', 'consumer', 'brand', 'merchandising'],
-    'manufacturing': ['industrial', 'supply chain', 'production', 'automotive']
+    'startup': ['entrepreneur', 'founder', 'early stage', 'innovation', 'venture'],
+    'enterprise': ['corporate', 'large company', 'fortune 500', 'established', 'multinational'],
+    'finance': ['banking', 'investment', 'capital markets', 'fintech', 'wealth management'],
+    'healthcare': ['biotech', 'pharma', 'medical device', 'health tech', 'clinical'],
+    'education': ['academia', 'university', 'training', 'learning', 'educational'],
+    'retail': ['ecommerce', 'consumer', 'brand', 'merchandising', 'commerce'],
+    'manufacturing': ['industrial', 'supply chain', 'production', 'automotive', 'manufacturing']
   };
   
-  // Create variations based on the variation index
+  // Enhanced variations with more sophisticated combinations
   const variations = [
     // Variation 0: Original keywords
     originalKeywords,
@@ -878,7 +891,23 @@ function generateKeywordVariations(originalKeywords, variationIndex = 0) {
     }).join(' '),
     
     // Variation 7: Focus on experience level
-    baseTerms.concat(['expert', 'specialist', 'professional']).join(' ')
+    baseTerms.concat(['expert', 'specialist', 'professional']).join(' '),
+    
+    // Variation 8: C-Suite focus
+    baseTerms.filter(term => ['women', 'female'].includes(term))
+             .concat(['ceo', 'cto', 'cfo', 'cmo', 'c-suite']).join(' '),
+             
+    // Variation 9: VP level focus
+    baseTerms.filter(term => ['women', 'female'].includes(term))
+             .concat(['vp', 'vice president', 'senior vp', 'svp']).join(' '),
+             
+    // Variation 10: Functional roles
+    baseTerms.filter(term => ['women', 'female'].includes(term))
+             .concat(['head of', 'chief', 'president', 'partner']).join(' '),
+             
+    // Variation 11: Industry-specific leadership
+    baseTerms.filter(term => ['women', 'female'].includes(term))
+             .concat(['founder', 'entrepreneur', 'owner', 'principal']).join(' ')
   ];
   
   // Select variation based on index, cycling through available options
@@ -888,17 +917,75 @@ function generateKeywordVariations(originalKeywords, variationIndex = 0) {
   return selectedVariation;
 }
 
+// AI-powered keyword generation using OpenAI
+async function generateAIKeywords(originalKeywords, campaignId) {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OpenAI API key not configured');
+  }
+
+  // Get previously used AI keywords for this campaign to avoid repetition
+  const { data: previousKeywords } = await db
+    .from('campaign_executions')
+    .select('worker_logs')
+    .eq('campaign_id', campaignId)
+    .not('worker_logs', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  const usedKeywords = previousKeywords?.map(log => 
+    log.worker_logs?.ai_keywords
+  ).filter(Boolean) || [];
+
+  const prompt = `Generate fresh LinkedIn search keywords for finding professional women executives.
+
+Original keywords: "${originalKeywords}"
+Previously used AI keywords: ${usedKeywords.join(', ')}
+
+Requirements:
+- MUST include gender indicators (women/female/she/her)
+- Target executive/director/manager level roles  
+- 20+ years experience indicators
+- Professional leadership terms
+- Avoid previously used combinations
+
+Generate 1 keyword combination that's different from previous attempts but targets the same demographic.
+Return only the keywords, no explanation.`;
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 50,
+      temperature: 0.8 // Higher creativity
+    });
+
+    const aiKeywords = completion.choices[0]?.message?.content?.trim();
+    
+    // Store the AI keywords in the execution log for tracking
+    if (aiKeywords) {
+      console.log(`[Worker] 🤖 AI generated: "${aiKeywords}"`);
+      return aiKeywords;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('[Worker] ❌ OpenAI keyword generation failed:', error.message);
+    throw error;
+  }
+}
+
 // Build LinkedIn search URL with advanced filters
-function buildAdvancedSearchUrl(criteria = {}, keywords = '', variationIndex = 0) {
+async function buildAdvancedSearchUrl(criteria = {}, keywords = '', variationIndex = 0, campaignId = null) {
   const baseUrl = 'https://www.linkedin.com/search/results/people/';
   const params = new URLSearchParams();
 
-  // Generate keyword variation based on the variationIndex
-  const variedKeywords = generateKeywordVariations(keywords, variationIndex);
+  // Generate keyword variation (with AI support after variation 11)
+  const useAI = variationIndex > 11; // Use AI after exhausting all manual variations
+  const variedKeywords = await generateKeywordVariations(keywords, variationIndex, campaignId, useAI);
   
   // Clean the varied keywords - remove all types of quotes and parentheses, simplify complex phrases
   let cleaned = variedKeywords
-    .replace(/[\(\)"'"'"„‚‛‟]+/g, '') // Remove all quote types including smart quotes
+    .replace(/[()"'""''„‚‛‟]/g, '') // ✅ Fixed quote-stripping regex
     .replace(/\s+OR\s+/gi, ' ') // Convert OR operators to spaces for simpler search
     .replace(/[,]+/g, ' ') // Replace commas with spaces
     .replace(/\s+/g, ' ') // Normalize multiple spaces
@@ -1474,18 +1561,31 @@ async function logDirectInvite(db, campaign, person) {
 // Helper function to increment campaign daily_sent count
 async function updateCampaignDailyCount(db, campaignId) {
   try {
-    const { error } = await db
+    const { data, error } = await db
+      .from('campaigns')
+      .select('daily_sent')
+      .eq('id', campaignId)
+      .single();
+    
+    if (error) {
+      console.error('[Worker] ❌ Failed to get current daily count:', error.message);
+      return;
+    }
+    
+    const newCount = (data.daily_sent || 0) + 1;
+    
+    const { error: updateError } = await db
       .from('campaigns')
       .update({ 
-        daily_sent: db.raw('daily_sent + 1'),
+        daily_sent: newCount,
         updated_at: new Date().toISOString()
       })
       .eq('id', campaignId);
     
-    if (error) {
-      console.error('[Worker] ❌ Failed to update campaign daily count:', error.message);
+    if (updateError) {
+      console.error('[Worker] ❌ Failed to update campaign daily count:', updateError.message);
     } else {
-      console.log('[Worker] ✅ Updated campaign daily_sent count');
+      console.log(`[Worker] ✅ Updated campaign daily_sent count to ${newCount}`);
     }
   } catch (err) {
     console.error('[Worker] ❌ Error updating campaign daily count:', err.message);
@@ -1745,13 +1845,45 @@ async function safeConnect(page, db, campaign) {
         });
         
         if (meetsTargeting && !selectedProfile) {
+          // Extract the profile URL from the search result
+          let profileUrl = null;
+          try {
+            // Use Stagehand to extract the profile URL
+            profileUrl = await page.evaluate(() => {
+              // Find the profile link in the search results
+              const profileLinks = Array.from(document.querySelectorAll('a[href*="/in/"]'));
+              // Get the first profile link that contains "/in/" (LinkedIn profile path)
+              const link = profileLinks.find(link => link.href.includes('/in/'));
+              return link ? link.href : null;
+            });
+            
+            if (!profileUrl) {
+              // Fallback: try to extract from the current page context
+              const currentUrl = page.url();
+              if (currentUrl.includes('linkedin.com/search/results/people')) {
+                // We're on search results page, try to get profile URL from search result
+                profileUrl = await page.evaluate((index) => {
+                  const resultCards = document.querySelectorAll('[data-chameleon-result-urn]');
+                  if (resultCards[index]) {
+                    const profileLink = resultCards[index].querySelector('a[href*="/in/"]');
+                    return profileLink ? profileLink.href : null;
+                  }
+                  return null;
+                }, i);
+              }
+            }
+          } catch (urlErr) {
+            console.warn(`[Worker] ⚠️ Could not extract profile URL:`, urlErr.message);
+          }
+          
           selectedProfile = {
             index: i + 1,
             text: profileText,
             name: profileText.split('\n')[0] || `Profile ${i + 1}`, // First line usually has the name
+            profileUrl: profileUrl, // ✅ Now properly extracted
             element: profileElement
           };
-          console.log(`[Worker] ✅ Selected profile ${i + 1} - meets targeting criteria`);
+          console.log(`[Worker] ✅ Selected profile ${i + 1} - meets targeting criteria, URL: ${profileUrl || 'not found'}`);
         } else if (!meetsTargeting) {
           console.log(`[Worker] ❌ Skipped profile ${i + 1} - doesn't meet targeting criteria`);
         }
@@ -1773,7 +1905,7 @@ async function safeConnect(page, db, campaign) {
     // Use Stagehand to intelligently click the Connect button for the selected profile
     try {
       await page.act(
-        `Click the "Connect" button for profile #${selectedProfile.index} in the search results. Make sure to click "Connect" and not "Follow", "Message", or "Withdraw".`
+        `Click the "Connect" button for profile #${selectedProfile.index} in the search results. Make sure to click the button that says "Connect" (not "Follow", "Message", or "Withdraw"). Look for aria-label starting with "Connect to" or text content "Connect".`
       );
       
       console.log(`[Worker] ✅ Clicked Connect button for profile ${selectedProfile.index}`);
@@ -1782,7 +1914,7 @@ async function safeConnect(page, db, campaign) {
       
       // Fallback: Try to connect with any available Connect button
       try {
-        await page.act('Click any visible "Connect" button in the search results (not "Follow", "Message", or "Withdraw")');
+        await page.act('Click a "Connect" button in the search results. Only click buttons with text "Connect" or aria-label starting with "Connect to". Do not click "Follow", "Message", or "Withdraw" buttons.');
         console.log(`[Worker] ✅ Clicked Connect button (fallback method)`);
       } catch (fallbackErr) {
         console.error(`[Worker] ❌ All Connect attempts failed:`, fallbackErr.message);
@@ -1884,7 +2016,7 @@ async function safeConnect(page, db, campaign) {
     await db.from('prospects').insert({
       id: prospectId,
       campaign_id: campaign.id,
-      profile_url: null,
+      profile_url: selectedProfile.profileUrl || null, // ✅ Use extracted URL
       first_name: firstName,
       status: 'contacted',
     });
@@ -1894,15 +2026,18 @@ async function safeConnect(page, db, campaign) {
       campaign_id: campaign.id,
       user_id: campaign.user_id,
       prospect_id: prospectId,
-      prospect_linkedin_id: null,
+      prospect_linkedin_id: selectedProfile.profileUrl ? selectedProfile.profileUrl.split('/in/')[1]?.split('/')[0] : null,
       note: campaign.cta_mode === 'connect_with_note' ? 'Added via Stagehand' : null,
       sent_at: new Date().toISOString(),
     });
     
+    // Update campaign daily count
+    await updateCampaignDailyCount(db, campaign.id);
+    
     // Track connection for follow-up campaigns
     await trackConnectionForFollowUp(campaign, {
       name: selectedProfile.name,
-      profileUrl: selectedProfile.profileUrl || null,
+      profileUrl: selectedProfile.profileUrl || null, // ✅ Use extracted URL
       firstName: firstName
     });
     

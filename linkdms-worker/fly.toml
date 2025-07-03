@@ -1,7 +1,5 @@
-# fly.toml app configuration file generated for linkdms-worker on 2025-06-30T17:39:38-05:00
-#
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
+# fly.toml app configuration file for linkdms-worker
+# INTERNAL-ONLY SERVICE - Not accessible from public internet
 
 app = 'linkdms-worker'
 primary_region = 'ord'
@@ -9,13 +7,13 @@ primary_region = 'ord'
 [build]
   dockerfile = "Dockerfile"
 
-[http_service]
+# Internal-only service (no public HTTP access)
+[[services]]
   internal_port = 3000
-  force_https = true
-  auto_stop_machines = 'stop'
-  auto_start_machines = true
-  min_machines_running = 0
-  processes = ['app']
+  protocol = "tcp"
+  
+  [[services.ports]]
+    port = 3000
 
 [[vm]]
   memory = '1gb'
