@@ -24,6 +24,11 @@ export type Database = {
           updated_at: string | null
           user_id: string | null
           weekly_limit: number | null
+          daily_sent: number | null
+          total_sent: number | null
+          last_run_date: string | null
+          next_run_date: string | null
+          is_active: boolean | null
         }
         Insert: {
           campaign_name?: string | null
@@ -39,6 +44,11 @@ export type Database = {
           updated_at?: string | null
           user_id?: string | null
           weekly_limit?: number | null
+          daily_sent?: number | null
+          total_sent?: number | null
+          last_run_date?: string | null
+          next_run_date?: string | null
+          is_active?: boolean | null
         }
         Update: {
           campaign_name?: string | null
@@ -54,6 +64,11 @@ export type Database = {
           updated_at?: string | null
           user_id?: string | null
           weekly_limit?: number | null
+          daily_sent?: number | null
+          total_sent?: number | null
+          last_run_date?: string | null
+          next_run_date?: string | null
+          is_active?: boolean | null
         }
         Relationships: []
       }
