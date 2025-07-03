@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, Mail, MessageSquare, UserCheck } from "lucide-react";
+import { Mail, MessageSquare } from "lucide-react";
 import CampaignManager from './CampaignManager';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,19 +28,31 @@ const Dashboard = () => {
     queryKey: ['user-stats'],
     queryFn: async () => {
       if (!user) return null;
-      const { data, error } = await supabase.rpc('get_all_campaign_stats_for_user', { in_user_id: user.id });
-      if (error) throw error;
-      return data?.[0] || { dms_sent: 0, replies: 0, acceptance_rate: 0, leads: 0 };
+      const firstOfMonth = new Date();
+      firstOfMonth.setDate(1);
+      firstOfMonth.setHours(0,0,0,0);
+
+      const [{ count: invitesCount, error: invErr }, { count: repliesCount, error: repErr }] = await Promise.all([
+        supabase.from('invites')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .gte('sent_at', firstOfMonth.toISOString()),
+        supabase.from('messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .gte('sent_at', firstOfMonth.toISOString()),
+      ]);
+      if (invErr) throw invErr;
+      if (repErr) throw repErr;
+      return { connections_sent: invitesCount || 0, replies: repliesCount || 0 };
     },
     enabled: !!user,
     refetchInterval: 30000,
   });
 
   const statMappings = useMemo(() => ([
-    { key: 'dms_sent', label: 'DMs Sent (Month)', icon: <Mail /> },
+    { key: 'connections_sent', label: 'Connections Sent (Month)', icon: <Mail /> },
     { key: 'replies', label: 'Replies', icon: <MessageSquare /> },
-    { key: 'acceptance_rate', label: 'Acceptance Rate', icon: <UserCheck /> },
-    { key: 'leads', label: 'New Leads', icon: <BarChart3 /> },
   ]), []);
 
   // Activity feed: last 10 invites/messages
@@ -70,7 +82,7 @@ const Dashboard = () => {
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {statMappings.map(s => (
-          <StatCard key={s.key} title={s.label} value={stats ? (s.key === 'acceptance_rate' ? `${stats[s.key]}%` : stats[s.key]) : '—'} icon={s.icon} />
+          <StatCard key={s.key} title={s.label} value={stats ? stats[s.key] : '—'} icon={s.icon} />
         ))}
       </div>
       {/* Activity Feed */}
