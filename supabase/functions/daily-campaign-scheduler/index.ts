@@ -212,8 +212,8 @@ async function executeBatch(supabaseClient: any, campaign: Campaign, batch: any,
   }
 
   try {
-    // Call the LinkedIn worker
-    const workerResponse = await fetch('https://linkdms-worker.fly.dev/run-linkedin-job', {
+    // Call the LinkedIn worker using internal Fly.io networking
+    const workerResponse = await fetch('http://linkdms-worker.internal:3000/run-linkedin-job', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -309,8 +309,8 @@ async function processFollowUpCampaigns(supabaseClient: any) {
     const results = [];
     for (const campaign of followUpCampaigns) {
       try {
-        // Call the worker's follow-up endpoint
-        const workerResponse = await fetch('https://linkdms-worker.fly.dev/process-followups', {
+        // Call the worker's follow-up endpoint using internal networking
+        const workerResponse = await fetch('http://linkdms-worker.internal:3000/process-followups', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
