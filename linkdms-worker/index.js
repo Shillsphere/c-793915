@@ -15,6 +15,22 @@ const db = createClient(
 );
 
 const app = express();
+
+// CORS middleware to allow requests from the frontend
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  // Handle preflight OPTIONS requests
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+    return;
+  }
+  
+  next();
+});
+
 app.use(express.json());
 
 // ==================== FOLLOW-UP SYSTEM ====================
@@ -638,19 +654,20 @@ app.post('/run-linkedin-job', async (req, res) => {
     };
     
     /*************************  NEW MULTI-PAGE LOGIC  *************************/
-    const searchUrl = buildAdvancedSearchUrl(campaign.targeting_criteria || {}, searchKeywords);
-    console.log(`[Worker] 🔎 Base search URL: ${searchUrl}`);
+    console.log(`[Worker] 🎯 Using simplified mass connect strategy with keyword variations for ${searchKeywords}`);
 
     const processed = new Set(); // avoid duplicate profile visits
     let pageNum = 1;
     const pageCap = 15; // hard stop to avoid endless loops
     let sent = 0;
 
-    console.log(`[Worker] 🎯 Using simplified mass connect strategy for ${searchKeywords}`);
-
     while (sent < remainingToday && pageNum <= pageCap) {
+      // Generate a varied search URL for each page to get different results
+      const variationIndex = (pageNum - 1) % 8; // Cycle through 8 keyword variations
+      const searchUrl = buildAdvancedSearchUrl(campaign.targeting_criteria || {}, searchKeywords, variationIndex);
       const pageUrl = pageNum === 1 ? searchUrl : `${searchUrl}${searchUrl.includes('?') ? '&' : '?'}page=${pageNum}`;
-      console.log(`[Worker] 📍 Navigating to page ${pageNum}: ${pageUrl}`);
+      
+      console.log(`[Worker] 📍 Page ${pageNum} (variation ${variationIndex}): ${pageUrl}`);
       let loaded = false;
       try {
         await withRetry(() => page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 60000 }), 3, 2000);
@@ -729,7 +746,9 @@ app.post('/run-linkedin-job', async (req, res) => {
             console.log('[Worker] ❌ Could not restart browser, ending job');
             break;
           }
-          // Continue with the same page after restart
+          // After restart, skip to next page to avoid the problematic area
+          console.log('[Worker] ⏭️ Skipping to next page after browser restart to avoid problematic content');
+          pageNum++;
           continue;
         } else {
           // Other errors, just continue to next page
@@ -785,13 +804,100 @@ app.listen(PORT, '0.0.0.0', () => {
 });
 
 // +++++++++++++ HELPER FUNCTIONS +++++++++++++
+
+// Generate keyword variations to avoid repetitive search results
+function generateKeywordVariations(originalKeywords, variationIndex = 0) {
+  const baseTerms = originalKeywords.toLowerCase().split(/\s+/).filter(term => term.length > 2);
+  
+  // Define professional synonyms and related terms
+  const synonymMappings = {
+    'director': ['leader', 'head', 'chief', 'vp', 'vice president', 'principal'],
+    'manager': ['supervisor', 'lead', 'coordinator', 'senior', 'team lead'],
+    'executive': ['officer', 'c-suite', 'leadership', 'senior executive', 'top management'],
+    'women': ['female', 'woman', 'she/her', 'ladies'],
+    'senior': ['experienced', 'veteran', 'seasoned', 'principal', 'lead'],
+    'engineer': ['developer', 'architect', 'technical', 'software'],
+    'marketing': ['brand', 'growth', 'digital marketing', 'marketing communications'],
+    'sales': ['business development', 'account', 'revenue', 'client relations'],
+    'finance': ['financial', 'accounting', 'treasury', 'investment'],
+    'operations': ['ops', 'operational', 'process', 'logistics'],
+    'technology': ['tech', 'digital', 'innovation', 'IT'],
+    'healthcare': ['medical', 'clinical', 'health', 'pharmaceutical'],
+    'consulting': ['advisory', 'strategy', 'consultant', 'professional services']
+  };
+  
+  // Industry-specific keyword expansions
+  const industryExpansions = {
+    'startup': ['entrepreneur', 'founder', 'early stage', 'innovation'],
+    'enterprise': ['corporate', 'large company', 'fortune 500', 'established'],
+    'finance': ['banking', 'investment', 'capital markets', 'fintech'],
+    'healthcare': ['biotech', 'pharma', 'medical device', 'health tech'],
+    'education': ['academia', 'university', 'training', 'learning'],
+    'retail': ['ecommerce', 'consumer', 'brand', 'merchandising'],
+    'manufacturing': ['industrial', 'supply chain', 'production', 'automotive']
+  };
+  
+  // Create variations based on the variation index
+  const variations = [
+    // Variation 0: Original keywords
+    originalKeywords,
+    
+    // Variation 1: Use synonyms for key terms
+    baseTerms.map(term => {
+      const synonyms = synonymMappings[term];
+      return synonyms ? synonyms[0] : term;
+    }).join(' '),
+    
+    // Variation 2: Add industry context
+    baseTerms.concat(['professional', 'experienced']).join(' '),
+    
+    // Variation 3: Different synonym combinations  
+    baseTerms.map(term => {
+      const synonyms = synonymMappings[term];
+      return synonyms && synonyms.length > 1 ? synonyms[1] : term;
+    }).join(' '),
+    
+    // Variation 4: Focus on leadership terms
+    baseTerms.filter(term => ['director', 'manager', 'executive', 'senior', 'lead'].includes(term))
+             .concat(['leadership', 'management']).join(' '),
+             
+    // Variation 5: Industry expansion
+    (() => {
+      let expanded = [...baseTerms];
+      baseTerms.forEach(term => {
+        const expansion = industryExpansions[term];
+        if (expansion) expanded.push(expansion[0]);
+      });
+      return expanded.join(' ');
+    })(),
+    
+    // Variation 6: Alternative professional terms
+    baseTerms.map(term => {
+      const synonyms = synonymMappings[term];
+      return synonyms && synonyms.length > 2 ? synonyms[2] : term;
+    }).join(' '),
+    
+    // Variation 7: Focus on experience level
+    baseTerms.concat(['expert', 'specialist', 'professional']).join(' ')
+  ];
+  
+  // Select variation based on index, cycling through available options
+  const selectedVariation = variations[variationIndex % variations.length];
+  console.log(`[Worker] 🔄 Keyword variation ${variationIndex}: "${originalKeywords}" → "${selectedVariation}"`);
+  
+  return selectedVariation;
+}
+
 // Build LinkedIn search URL with advanced filters
-function buildAdvancedSearchUrl(criteria = {}, keywords = '') {
+function buildAdvancedSearchUrl(criteria = {}, keywords = '', variationIndex = 0) {
   const baseUrl = 'https://www.linkedin.com/search/results/people/';
   const params = new URLSearchParams();
 
-  // Clean keywords - remove all types of quotes and parentheses, simplify complex phrases
-  let cleaned = keywords
+  // Generate keyword variation based on the variationIndex
+  const variedKeywords = generateKeywordVariations(keywords, variationIndex);
+  
+  // Clean the varied keywords - remove all types of quotes and parentheses, simplify complex phrases
+  let cleaned = variedKeywords
     .replace(/[\(\)"'"'"„‚‛‟]+/g, '') // Remove all quote types including smart quotes
     .replace(/\s+OR\s+/gi, ' ') // Convert OR operators to spaces for simpler search
     .replace(/[,]+/g, ' ') // Replace commas with spaces
@@ -808,7 +914,7 @@ function buildAdvancedSearchUrl(criteria = {}, keywords = '') {
     cleaned = keyTerms || 'founder'; // Fallback if no good terms found
   }
   
-  console.log(`[Worker] 🔍 Original keywords: "${keywords}" → Cleaned: "${cleaned}"`);
+  console.log(`[Worker] 🔍 Varied keywords: "${variedKeywords}" → Cleaned: "${cleaned}"`);
   params.append('keywords', cleaned);
 
   /* ---------------- Location ---------------- */
@@ -1109,6 +1215,9 @@ async function sendConnectionRequest(page, target, campaign) {
       sent_at: new Date().toISOString(),
     });
 
+    // Update campaign daily count
+    await updateCampaignDailyCount(db, campaign.id);
+
     // For "connect_then_followup" campaigns, track the connection for future follow-up processing
     if (campaign.cta_mode === 'connect_then_followup') {
       await trackConnectionForFollowUp(campaign, {
@@ -1357,6 +1466,30 @@ async function logDirectInvite(db, campaign, person) {
     note: null,
     sent_at: new Date().toISOString(),
   });
+
+  // 🔧 UPDATE: Increment the daily_sent count in campaigns table
+  await updateCampaignDailyCount(db, campaign.id);
+}
+
+// Helper function to increment campaign daily_sent count
+async function updateCampaignDailyCount(db, campaignId) {
+  try {
+    const { error } = await db
+      .from('campaigns')
+      .update({ 
+        daily_sent: db.raw('daily_sent + 1'),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', campaignId);
+    
+    if (error) {
+      console.error('[Worker] ❌ Failed to update campaign daily count:', error.message);
+    } else {
+      console.log('[Worker] ✅ Updated campaign daily_sent count');
+    }
+  } catch (err) {
+    console.error('[Worker] ❌ Error updating campaign daily count:', err.message);
+  }
 }
 
 async function quickConnect(page, person) {
@@ -1423,6 +1556,9 @@ async function massConnect(page, db, campaign, limit) {
           note: null,
           sent_at: new Date().toISOString(),
         });
+        
+        // Update campaign daily count
+        await updateCampaignDailyCount(db, campaign.id);
         
         sent++;
         console.log(`[Worker] ✅ Mass connect ${sent}/${limit}`);
@@ -1506,6 +1642,9 @@ async function simplePageConnect(page, db, campaign, limit) {
             note: null,
             sent_at: new Date().toISOString(),
           });
+          
+          // Update campaign daily count
+          await updateCampaignDailyCount(db, campaign.id);
           
           sent++;
           console.log(`[Worker] ✅ Simple connect ${sent}/${limit} - successfully logged to database`);
@@ -1651,45 +1790,90 @@ async function safeConnect(page, db, campaign) {
       }
     }
     
-    // Wait for connection modal to appear
-    await page.waitForTimeout(2000);
+    // Wait for potential modal to appear
+    await page.waitForTimeout(3000);
     
-    // Use Stagehand to handle the connection modal intelligently
+    // Enhanced modal handling for LinkedIn's various connection scenarios
     try {
-      // First, check if there's a note field (for campaigns that want to add notes)
-      if (campaign.cta_mode === 'connect_with_note' && campaign.template) {
+      console.log(`[Worker] 🔍 Checking for LinkedIn connection modal...`);
+      
+      // Check for withdrawal/warning modals first
+      const modalCheck = await page.observe(
+        'Look for any modal, popup, or dialog that appeared after clicking Connect. This could be asking "How do you know this person?", "Are you sure?", or showing connection options.'
+      );
+      
+      if (modalCheck && modalCheck.length > 0) {
+        console.log(`[Worker] 📋 Modal detected, analyzing options...`);
+        
+        // Check for withdrawal scenarios (LinkedIn asking verification)
         try {
-          const noteObservation = await page.observe('Look for a text area or input field to add a personal note to the connection request');
-          
-          if (noteObservation && noteObservation.length > 0) {
-            const firstName = selectedProfile.name.split(' ')[0] || 'there';
-            const personalizedNote = await genMessage(firstName, campaign);
-            
-            await page.act(`Type this message in the note field: "${personalizedNote}"`);
-            console.log(`[Worker] ✅ Added personalized note`);
-          }
-        } catch (noteErr) {
-          console.warn(`[Worker] ⚠️ Could not add note:`, noteErr.message);
+          // Handle "How do you know X?" modal
+          await page.act('If there is a modal asking "How do you know" this person, click "Other" or the most general option available');
+          await page.waitForTimeout(2000);
+          console.log(`[Worker] ✅ Handled "How do you know" modal`);
+        } catch (knowModalErr) {
+          console.log(`[Worker] ℹ️ No "How do you know" modal found`);
         }
-      }
-      
-      // Send the invitation using Stagehand
-      await page.act('Click the "Send invitation" or "Send" button to send the connection request');
-      console.log(`[Worker] ✅ Sent connection invitation`);
-      
-    } catch (sendErr) {
-      console.warn(`[Worker] ⚠️ Failed to send invitation:`, sendErr.message);
-      
-      // Fallback methods for sending
-      try {
-        await page.act('Click the blue "Send" button');
-      } catch {
-        try {
-          await page.act('Click "Send invitation"');
-        } catch {
-          console.error(`[Worker] ❌ Could not send invitation with any method`);
+        
+        // Check for note field (for campaigns that want to add notes)
+        if (campaign.cta_mode === 'connect_with_note' && campaign.template) {
+          try {
+            const noteObservation = await page.observe('Look for a text area or input field to add a personal note to the connection request');
+            
+            if (noteObservation && noteObservation.length > 0) {
+              const firstName = selectedProfile.name.split(' ')[0] || 'there';
+              const personalizedNote = await genMessage(firstName, campaign);
+              
+              await page.act(`Type this message in the note field: "${personalizedNote}"`);
+              console.log(`[Worker] ✅ Added personalized note`);
+              await page.waitForTimeout(2000);
+            }
+          } catch (noteErr) {
+            console.log(`[Worker] ℹ️ No note field found or accessible`);
+          }
+        }
+        
+        // Try to send the invitation with multiple strategies
+        let sendSuccessful = false;
+        const sendStrategies = [
+          'Click the "Send invitation" button',
+          'Click the "Send" button', 
+          'Click the blue "Send" button',
+          'Click "Connect" if it appears as a final confirmation',
+          'Click any button that will complete the connection request'
+        ];
+        
+        for (const strategy of sendStrategies) {
+          try {
+            await page.act(strategy);
+            console.log(`[Worker] ✅ Successfully sent invitation using: ${strategy}`);
+            sendSuccessful = true;
+            break;
+          } catch (strategyErr) {
+            console.log(`[Worker] ⏭️ Strategy failed: ${strategy}`);
+          }
+        }
+        
+        if (!sendSuccessful) {
+          console.error(`[Worker] ❌ All send strategies failed`);
           return false;
         }
+        
+      } else {
+        // No modal appeared, connection might have been sent immediately
+        console.log(`[Worker] ✅ No modal detected - connection likely sent immediately`);
+      }
+      
+    } catch (modalErr) {
+      console.warn(`[Worker] ⚠️ Modal handling failed:`, modalErr.message);
+      
+      // Last resort: try to dismiss any blocking elements and send
+      try {
+        await page.act('If there are any buttons to complete or send a connection request, click them');
+        console.log(`[Worker] ✅ Sent connection invitation (fallback)`);
+      } catch (fallbackErr) {
+        console.error(`[Worker] ❌ Final fallback failed:`, fallbackErr.message);
+        return false;
       }
     }
     
