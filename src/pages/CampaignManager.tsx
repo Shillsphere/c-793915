@@ -278,7 +278,7 @@ const CampaignManager = () => {
         {(campaigns || []).map(campaign => (
           <Card key={campaign.id} onClick={() => setSelectedCampaign(campaign)} className="cursor-pointer">
             <CardHeader>
-              <CardTitle>{campaign.campaign_name}</CardTitle>
+              <CardTitle>{campaign.name}</CardTitle>
               <CardDescription>
                 {campaign.keywords || 'No keywords specified'}
               </CardDescription>
@@ -310,7 +310,7 @@ const CampaignManager = () => {
                  disabled={deleteMutation.isPending}
                  onClick={(e) => {
                    e.stopPropagation();
-                   if (window.confirm(`Are you sure you want to delete "${campaign.campaign_name}"?`)) {
+                   if (window.confirm(`Are you sure you want to delete "${campaign.name}"?`)) {
                      deleteMutation.mutate(campaign.id);
                    }
                  }}
@@ -443,7 +443,7 @@ const CampaignLogDialog = ({ campaign, onClose }: { campaign: any, onClose: () =
     <Dialog open={!!campaign} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Campaign Analytics – {campaign.campaign_name}</DialogTitle>
+          <DialogTitle>Campaign Analytics – {campaign.name}</DialogTitle>
         </DialogHeader>
         
         <Tabs defaultValue="summary" className="w-full">

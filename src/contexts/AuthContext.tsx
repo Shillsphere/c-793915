@@ -3,11 +3,14 @@ import * as React from 'react';
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+type AuthView = 'sign_in' | 'sign_up';
+
 interface AuthContextType {
   session: Session | null;
   user: User | null;
-  isAuthenticated: boolean;
-  logout: () => Promise<void>;
+  loading: boolean;
+  view: AuthView;
+  setView: React.Dispatch<React.SetStateAction<AuthView>>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -15,12 +18,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<AuthView>('sign_in');
 
   useEffect(() => {
     const getSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      setSession(data.session);
-      setUser(data.session?.user ?? null);
+      const { data: { session } } = await supabase.auth.getSession();
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
     };
     getSession();
 
@@ -28,6 +34,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+        setLoading(false);
       }
     );
 
@@ -43,8 +50,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const value = {
     session,
     user,
-    isAuthenticated: !!session,
-    logout,
+    loading,
+    view,
+    setView,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

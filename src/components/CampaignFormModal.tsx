@@ -26,9 +26,9 @@ const nonEmptyStringArray = (s: string): string[] =>
     .filter((v) => v.length && v.toLowerCase() !== 'any');
 
 const campaignSchema = z.object({
-  campaign_name: z.string().min(1, "Campaign name is required"),
-  keywords: z.string().optional().default(''),
-  template: z.string().optional(),
+  name: z.string().min(3, 'Campaign name must be at least 3 characters long.'),
+  keywords: z.string(),
+  template: z.string(),
   daily_limit: z.coerce.number().min(1, "Daily limit must be at least 1"),
   cta_mode: z.enum(["connect_only", "connect_with_note", "connect_then_followup"]),
   targeting_criteria: z
@@ -97,13 +97,13 @@ const createCampaign = async (newCampaignData: z.infer<typeof campaignSchema>) =
     .select('*', { count: 'exact', head: true })
     .eq('user_id', user.id);
   if (countErr) throw countErr;
-  if ((existingCount || 0) >= 2) {
-    throw new Error('You have reached the maximum of 2 campaigns. Please archive or delete an existing campaign before creating a new one.');
+  if ((existingCount || 0) >= 10) {
+    throw new Error('You have reached the maximum of 10 campaigns. Please archive or delete an existing campaign before creating a new one.');
   }
 
-  const { campaign_name, ...rest } = newCampaignData;
+  const { name, ...rest } = newCampaignData;
   const payload = {
-    campaign_name: campaign_name,
+    name: name,
     ...rest,
     targeting_criteria: newCampaignData.targeting_criteria ?? null,
     user_id: user.id,
@@ -115,12 +115,12 @@ const createCampaign = async (newCampaignData: z.infer<typeof campaignSchema>) =
     .insert([payload])
     .select();
 
-  if (error && error.message.includes('duplicate') && error.message.includes('campaign_name')) {
+  if (error && error.message.includes('duplicate') && error.message.includes('name')) {
     // append " (copy)" to make the name unique
-    const newName = `${campaign_name} (copy)`;
+    const newName = `${name} (copy)`;
     ({ data, error } = await supabase
       .from('campaigns')
-      .insert([{ ...payload, campaign_name: newName }])
+      .insert([{ ...payload, name: newName }])
       .select());
   }
 
@@ -142,7 +142,7 @@ export const CampaignFormModal = ({
   // Build default values – if editing, seed with campaign data, else use sensible defaults
   const defaultValues: Partial<z.infer<typeof campaignSchema>> = campaign
     ? {
-        campaign_name: campaign.campaign_name ?? '',
+        name: campaign.name ?? '',
         keywords: campaign.keywords ?? '',
         template: campaign.template ?? '',
         daily_limit: campaign.daily_limit ?? 20,
@@ -150,7 +150,7 @@ export const CampaignFormModal = ({
         targeting_criteria: campaign.targeting_criteria ?? {},
       }
     : { 
-        campaign_name: '',
+        name: '',
         keywords: '',
         template: '',
         daily_limit: 20,
@@ -173,7 +173,7 @@ export const CampaignFormModal = ({
   React.useEffect(() => {
     if (campaign) {
       const vals = {
-        campaign_name: campaign.campaign_name ?? '',
+        name: campaign.name ?? '',
         keywords: campaign.keywords ?? '',
         template: campaign.template ?? '',
         daily_limit: campaign.daily_limit ?? 20,
@@ -183,7 +183,7 @@ export const CampaignFormModal = ({
       reset(vals as any);
     } else {
       reset({ 
-        campaign_name: '',
+        name: '',
         keywords: '',
         template: '',
         daily_limit: 20,
@@ -198,7 +198,7 @@ export const CampaignFormModal = ({
       if (campaign) {
         // ---- Update existing campaign ----
         const updatePayload = {
-          campaign_name: formData.campaign_name,
+          name: formData.name,
           keywords: formData.keywords,
           template: formData.template,
           daily_limit: formData.daily_limit,
@@ -210,11 +210,11 @@ export const CampaignFormModal = ({
           .from('campaigns')
           .update(updatePayload)
           .eq('id', campaign.id);
-        if (error && error.message.includes('duplicate') && error.message.includes('campaign_name')) {
-          const newName = `${formData.campaign_name} (copy)`;
+        if (error && error.message.includes('duplicate') && error.message.includes('name')) {
+          const newName = `${formData.name} (copy)`;
           ({ error } = await supabase
             .from('campaigns')
-            .update({ ...updatePayload, campaign_name: newName })
+            .update({ ...updatePayload, name: newName })
             .eq('id', campaign.id));
         }
         if (error) throw error;
@@ -304,9 +304,9 @@ export const CampaignFormModal = ({
             {/* Basic Campaign Details */}
             <div className="space-y-4">
               <div className="flex flex-col space-y-1">
-                <Label htmlFor="campaign_name">Name</Label>
-                <Input id="campaign_name" {...register("campaign_name")} />
-                {errors.campaign_name && <p className="text-red-500 text-sm">{errors.campaign_name.message}</p>}
+                <Label htmlFor="name">Name</Label>
+                <Input id="name" {...register("name")} />
+                {errors.name && <p className="text-red-500 text-sm">{errors.name.message}</p>}
               </div>
 
               <div className="flex flex-col space-y-1">

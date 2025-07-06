@@ -19,6 +19,8 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from "sonner"
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -26,6 +28,7 @@ interface AuthModalProps {
 }
 
 const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
+  const { view, setView, user } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -34,53 +37,50 @@ const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError('');
-    
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      
-      if (error) {
-        setError(error.message);
-      } else {
-        setMessage('Successfully signed in!');
-        setTimeout(() => {
-          onClose();
-          resetForm();
-        }, 1000);
-      }
-    } catch (err) {
-      setError('An unexpected error occurred');
-    } finally {
-      setLoading(false);
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      setError(error.message);
+    } else {
+      toast.success("Signed in successfully!");
+      // The user context will update and close the modal automatically
     }
+    setLoading(false);
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError('');
-    
+    setLoading(true);
+
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
+      // Step 1: Check waitlist status by calling our new Edge Function
+      const { data: checkData, error: checkError } = await supabase.functions.invoke('check-waitlist-status', {
+        body: { email },
       });
-      
-      if (error) {
-        setError(error.message);
-      } else {
-        setMessage('Account created! Please check your email for verification.');
-        setTimeout(() => {
-          onClose();
-          resetForm();
-        }, 2000);
+
+      if (checkError) {
+        throw new Error(`Waitlist check failed: ${checkError.message}`);
       }
-    } catch (err) {
-      setError('An unexpected error occurred');
+
+      // Step 2: Check the response from the function
+      if (checkData.isApproved) {
+        // User is approved, proceed with signup
+        const { error: signUpError } = await supabase.auth.signUp({ email, password });
+        if (signUpError) {
+          throw signUpError;
+        }
+        toast.success("Check your email for the confirmation link!");
+        setView('sign_in'); // Optional: switch to sign in view
+      } else {
+        // User is not approved, add them to the waitlist and inform them
+        toast.info("Thanks for your interest! We've added you to our waitlist and will let you know when you're accepted.");
+        // The edge function already added them, so we just close the modal or switch view
+        setView('sign_in');
+      }
+    } catch (err: any) {
+      setError(err.message || 'An unexpected error occurred.');
     } finally {
       setLoading(false);
     }
@@ -116,7 +116,7 @@ const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
           </TabsList>
           
           <TabsContent value="signin" className="space-y-4">
-            <form onSubmit={handleSignIn} className="space-y-4">
+            <form onSubmit={view === 'sign_in' ? handleSignIn : handleSignUp} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="signin-email">Email</Label>
                 <Input
@@ -158,14 +158,14 @@ const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                 </Button>
                 <Button type="submit" disabled={loading}>
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Sign In
+                  {view === 'sign_in' ? 'Sign In' : 'Sign Up'}
                 </Button>
               </DialogFooter>
             </form>
           </TabsContent>
           
           <TabsContent value="signup" className="space-y-4">
-            <form onSubmit={handleSignUp} className="space-y-4">
+            <form onSubmit={view === 'sign_up' ? handleSignUp : handleSignIn} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="signup-email">Email</Label>
                 <Input
@@ -214,7 +214,7 @@ const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                 </Button>
                 <Button type="submit" disabled={loading}>
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Sign Up
+                  {view === 'sign_up' ? 'Sign Up' : 'Sign In'}
                 </Button>
               </DialogFooter>
             </form>
