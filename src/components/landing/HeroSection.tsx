@@ -20,15 +20,15 @@ export const HeroSection = ({
       {/* Hero content starts */}
       <AnimatedTransition show={showTitle} animation="slide-up" duration={600}>
         <div className="w-full max-w-4xl mx-auto flex flex-col items-center">
-          {/* Title first */}
+        {/* Title first */}
           <h1 className="text-4xl sm:text-5xl font-bold mb-6 bg-clip-text text-blue-600 md:text-7xl leading-tight text-center">
             Instant LinkedIn outreach.<br className="hidden sm:block" /> Just tell us <em>who</em>, have AI do the rest.
-          </h1>
-          
-          {/* Sub-headline second */}
+        </h1>
+        
+        {/* Sub-headline second */}
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto mt-4 mb-8 animate-fade-in text-center">
-            Define your ideal audience once and watch connections, replies and meetings roll in automatically.
-          </p>
+          Define your ideal audience once and watch connections, replies and meetings roll in automatically.
+        </p>
 
           {/* Product demo video. Replace /demo.mp4 with your own recording in public/ */}
           <div className="w-full max-w-3xl aspect-video rounded-xl overflow-hidden mb-10 shadow-lg">

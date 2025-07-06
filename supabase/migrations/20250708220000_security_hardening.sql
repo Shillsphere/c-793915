@@ -39,6 +39,13 @@ DROP POLICY IF EXISTS "ce service" ON public.campaign_executions;
 CREATE POLICY "ce deny"   ON public.campaign_executions FOR SELECT TO authenticated USING (false);
 CREATE POLICY "ce service" ON public.campaign_executions FOR ALL    TO service_role USING (true) WITH CHECK (true);
 
+-- Fix waitlist_applications policies to allow both anon and authenticated users to insert
+DROP POLICY IF EXISTS "Anyone can submit waitlist application" ON public.waitlist_applications;
+CREATE POLICY "Anyone can submit waitlist application"
+ON public.waitlist_applications
+FOR INSERT
+TO anon, authenticated
+WITH CHECK (true);
 
 -- 2) ───────────────── LOCK FUNCTION search_path ─────────────
 -- Every call gets an explicit `search_path = public`.

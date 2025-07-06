@@ -4,6 +4,11 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 // @ts-ignore stripe deno shim
 import Stripe from "https://esm.sh/stripe@12.18.0?target=deno";
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 // ------- ENV -------
 // @ts-ignore Deno global provided at runtime
 const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY");
@@ -21,16 +26,24 @@ const stripe = new Stripe(STRIPE_SECRET_KEY!, {
 });
 
 serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
   try {
     if (req.method !== "POST") {
-      return new Response("Method not allowed", { status: 405 });
+      return new Response("Method not allowed", { 
+        status: 405, 
+        headers: corsHeaders 
+      });
     }
 
     const { email } = await req.json();
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
-      mode: "payment",
+      mode: "subscription",
       line_items: [
         {
           price: PRICE_ID!,
@@ -43,13 +56,13 @@ serve(async (req) => {
     });
 
     return new Response(JSON.stringify({ url: session.url }), {
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
   } catch (err: any) {
     console.error(err);
     return new Response(JSON.stringify({ error: err.message }), {
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
     });
   }

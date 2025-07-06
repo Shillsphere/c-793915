@@ -48,13 +48,13 @@ export function WaitlistModal({ isOpen, onClose }: WaitlistModalProps) {
         if (error.code === '23505') {
           toast.error("You've already applied to our waitlist!")
         } else {
-          toast.error("Failed to submit application. Please try again.")
+          toast.error(`Database error: ${error.message}`)
         }
         return
       }
 
-      // Create Stripe checkout session
-      const { data: checkoutData, error: checkoutError } = await supabase.functions.invoke(
+       // Create Stripe checkout session
+       const { data: checkoutData, error: checkoutError } = await supabase.functions.invoke(
         'create-checkout-session',
         {
           body: { email: formData.email }
@@ -62,7 +62,7 @@ export function WaitlistModal({ isOpen, onClose }: WaitlistModalProps) {
       )
 
       if (checkoutError || !checkoutData?.url) {
-        toast.error("Payment setup failed. Please try again.")
+        toast.error(`Payment setup failed: ${checkoutError?.message || 'No checkout URL returned'}`)
         return
       }
 
@@ -71,7 +71,7 @@ export function WaitlistModal({ isOpen, onClose }: WaitlistModalProps) {
       
     } catch (error) {
       console.error('Error submitting waitlist application:', error)
-      toast.error("Something went wrong. Please try again.")
+      toast.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsSubmitting(false)
     }

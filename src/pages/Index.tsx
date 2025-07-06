@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAnimateIn } from '@/lib/animations';
+import { SEOHead } from '@/components/SEOHead';
 import { HeroSection } from '@/components/landing/HeroSection';
 import { ProblemSection } from '@/components/landing/ProblemSection';
 import { HowItWorksSection } from '@/components/landing/HowItWorksSection';
@@ -36,11 +37,18 @@ const Index = () => {
   }
   
   return (
-    <div className="relative overflow-hidden">
-      {/* Background elements */}
-      <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-primary/5 to-transparent -z-10"></div>
-      <div className="absolute top-1/3 right-0 w-[300px] h-[300px] rounded-full bg-primary/5 blur-3xl -z-10"></div>
-      <div className="absolute bottom-1/3 left-0 w-[250px] h-[250px] rounded-full bg-accent/5 blur-3xl -z-10"></div>
+    <>
+      <SEOHead 
+        title="LinkDMS - AI-Powered LinkedIn Outreach Automation | Connect with 30+ Leads Daily"
+        description="Automate your LinkedIn outreach with LinkDMS. AI-powered platform that helps you connect with 30+ qualified leads daily, save 10+ hours per week, and grow your network efficiently. Perfect for sales teams, recruiters, and business development professionals."
+        keywords="LinkedIn automation, LinkedIn outreach, lead generation, sales automation, B2B sales, LinkedIn marketing, prospect outreach, sales prospecting, business development, LinkedIn tools, sales CRM, lead management, automated messaging, LinkedIn campaigns, sales productivity"
+        url="https://linkdms.com"
+      />
+      <div className="relative overflow-hidden">
+        {/* Background elements */}
+        <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-primary/5 to-transparent -z-10"></div>
+        <div className="absolute top-1/3 right-0 w-[300px] h-[300px] rounded-full bg-primary/5 blur-3xl -z-10"></div>
+        <div className="absolute bottom-1/3 left-0 w-[250px] h-[250px] rounded-full bg-accent/5 blur-3xl -z-10"></div>
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-24">
         <div className="flex flex-col">
@@ -67,6 +75,7 @@ const Index = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

@@ -156,7 +156,7 @@ export const Navbar = () => {
             {/* Linkdms with submenu */}
             <NavItem
               to="#"
-              icon={<img src="/lovable-uploads/3b23cd93-e10d-4a73-909c-b07ab3b51d18.png" alt="Linkdms" className="w-5 h-5" />}
+              icon={<span className="text-xl font-bold text-primary">LD</span>}
               label="Linkdms"
               active={['what', 'how'].includes(active)}
               onClick={() => {}}
