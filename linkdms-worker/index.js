@@ -682,6 +682,10 @@ app.post('/run-linkedin-job', async (req, res) => {
     let currentPage = campaign.next_page || 1;
     const maxPages = 15; // hard stop to avoid endless loops
     
+    // ===== NEW: EARLY EXIT TRACKING =====
+    let failedConsecutiveAttempts = 0;
+    const MAX_CONSECUTIVE_FAILS = 2; // Exit after 2 failed attempts on a page
+    
     console.log(`[Worker] 🎯 Resuming at variation ${variationIdx}, page ${currentPage}`);
     
     while (sent < remainingToday && currentPage <= maxPages) {
@@ -728,12 +732,14 @@ app.post('/run-linkedin-job', async (req, res) => {
       try {
         const connectionsThisPage = Math.min(remainingToday - sent, 10);
         let pageConnections = 0;
+        let pageFailedAttempts = 0; // Track failures on this specific page
         
         for (let attempt = 0; attempt < connectionsThisPage && sent < remainingToday; attempt++) {
           const connected = await safeConnect(page, db, campaign);
           if (connected) {
             pageConnections++;
             sent++;
+            failedConsecutiveAttempts = 0; // Reset on success
             console.log(`[Worker] ✅ Connection ${attempt + 1}/${connectionsThisPage} successful, total: ${sent}/${remainingToday}`);
             
             // Wait between connections
@@ -746,14 +752,29 @@ app.post('/run-linkedin-job', async (req, res) => {
                 await page.waitForTimeout(700);
               } catch (_) {}
             }
-        } else {
-            console.log(`[Worker] ⚠️ Connection ${attempt + 1} failed, trying next person`);
+          } else {
+            pageFailedAttempts++;
+            failedConsecutiveAttempts++;
+            console.log(`[Worker] ⚠️ Connection ${attempt + 1} failed, trying next person (page fails: ${pageFailedAttempts}, consecutive: ${failedConsecutiveAttempts})`);
+            
+            // ===== EARLY EXIT CHECK =====
+            if (failedConsecutiveAttempts >= MAX_CONSECUTIVE_FAILS) {
+              console.log(`[Worker] 🛑 Detected empty/processed page after ${failedConsecutiveAttempts} consecutive failures. Ending campaign gracefully to avoid session fatigue.`);
+              break; // Exit the attempt loop
+            }
+            
             // Scroll to find new people
             try {
               await page.act('Scroll down to reveal more search results');
               await page.waitForTimeout(500);
             } catch (_) {}
           }
+        }
+        
+        // Check if we should exit the main loop due to consecutive failures
+        if (failedConsecutiveAttempts >= MAX_CONSECUTIVE_FAILS) {
+          console.log(`[Worker] 🛑 Campaign terminated gracefully due to page exhaustion. Sent ${sent} connections total.`);
+          break; // Exit the main while loop
         }
         
         console.log(`[Worker] ✅ Page ${currentPage} complete: ${pageConnections} connections made, total: ${sent}/${remainingToday}`);
@@ -1258,6 +1279,16 @@ async function withRetry(fn, maxRetries = 3, baseDelay = 1000) {
     try {
       return await fn();
     } catch (err) {
+      // ===== ENHANCED ERROR HANDLING FOR PROXY ERRORS =====
+      if (err.message.includes('Cannot create proxy') || 
+          err.message.includes('non-object as target') ||
+          err.message.includes('browser has been closed') ||
+          err.message.includes('Target page')) {
+        console.error(`[Worker] 🚨 Critical browser state error detected: ${err.message}`);
+        console.error(`[Worker] 🛑 This indicates session termination - aborting retry to prevent cascade failure`);
+        throw new Error('BROWSER_SESSION_TERMINATED: ' + err.message);
+      }
+      
       if (attempt === maxRetries) throw err;
       const delay = baseDelay * Math.pow(2, attempt - 1);
       console.warn(`[Worker] Attempt ${attempt} failed, retrying in ${delay}ms:`, err.message);
@@ -1566,22 +1597,48 @@ function meetsSnippetCriteria(snippet = '', criteria = {}, firstName = '') {
     const genderPatterns = genderArr.map(kw => kw.toLowerCase());
     const hasGenderKw = genderPatterns.some((kw) => text.includes(kw));
     
-    // Updated logic: Only exclude if name is clearly male AND no gender keywords found
-    let firstNameGender;
+    // ===== FIXED: PROPER NAME EXTRACTION =====
+    let cleanFirstName = '';
+    if (typeof firstName === 'string' && firstName.trim()) {
+      // Simple case: firstName is already a clean string
+      cleanFirstName = firstName.trim().split(' ')[0];
+    } else if (typeof firstName === 'object' || firstName?.includes('[{')) {
+      // Complex case: firstName contains Stagehand observation JSON
+      // Extract name from patterns like: 'name of the person in profile #1, which is 'Jane Smith''
+      const nameMatch = String(firstName).match(/name.*?which is ['"]([^'"]+)['"]/) || 
+                       String(firstName).match(/['"]([A-Z][a-z]+ [A-Z][a-z]+)['"]/) ||
+                       String(firstName).match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/);
+      if (nameMatch && nameMatch[1]) {
+        cleanFirstName = nameMatch[1].trim().split(' ')[0];
+        debugLog(`[Worker] 🔧 Extracted name from JSON: "${cleanFirstName}"`);
+      }
+    }
+    
+    // Validate we have a clean name
+    if (!cleanFirstName || cleanFirstName.length < 2) {
+      debugLog(`[Worker] ⚠️ Could not extract clean first name from: "${firstName}"`);
+      cleanFirstName = ''; // Use empty string to avoid false detections
+    }
+    
+    // Gender detection with clean name
+    let firstNameGender = 'unknown';
     try {
-      firstNameGender = detector.detect(firstName);
+      if (cleanFirstName) {
+        firstNameGender = detector.detect(cleanFirstName);
+      }
     } catch (error) {
+      debugLog(`[Worker] ⚠️ Gender detection failed for "${cleanFirstName}":`, error.message);
       firstNameGender = 'unknown'; // Default to unknown if detection fails
     }
     const isNotMale = firstNameGender !== 'male'; // Allow 'female' and 'unknown'
     
     if (!hasGenderKw && !isNotMale) {
-      debugLog('[Worker] ❌ EXCLUDED: gender test failed (no keyword & name is male)');
+      debugLog(`[Worker] ❌ EXCLUDED: gender test failed (no keyword & name "${cleanFirstName}" is male)`);
       return false;
     }
     
     // Log the gender detection for debugging
-    debugLog(`[Worker] 🔍 Gender check: hasKeyword=${hasGenderKw}, name="${firstName}", detected="${firstNameGender}"`);
+    debugLog(`[Worker] 🔍 Gender check: hasKeyword=${hasGenderKw}, cleanName="${cleanFirstName}", detected="${firstNameGender}"`);
   }
 
   // ======= REQUIRED KEYWORDS =======
@@ -2007,17 +2064,24 @@ async function safeConnect(page, db, campaign) {
     // Step 2: Apply targeting criteria to select the best candidate
     let selectedProfile = null;
     
-    for (const candidate of profileCandidates) {
-      console.log(`[Worker] 🔍 Evaluating: ${candidate.name} - ${candidate.snippet.substring(0, 100)}...`);
-      
-      const firstName = candidate.name.split(' ')[0] || '';
-      
-      // Fast gender filter for female-targeted campaigns
-      if (campaign.targeting_criteria?.demographics?.gender_keywords?.length && 
-          detector.detect(firstName) === 'male') {
-        console.log(`[Worker] ⚡ Fast skip: ${firstName} detected as male`);
-        continue;
-      }
+         for (const candidate of profileCandidates) {
+       console.log(`[Worker] 🔍 Evaluating: ${candidate.name} - ${candidate.snippet.substring(0, 100)}...`);
+       
+       const firstName = candidate.name.split(' ')[0] || '';
+       
+       // ===== FIXED: Fast gender filter for female-targeted campaigns =====
+       if (campaign.targeting_criteria?.demographics?.gender_keywords?.length) {
+         try {
+           const detectedGender = detector.detect(firstName);
+           if (detectedGender === 'male') {
+             console.log(`[Worker] ⚡ Fast skip: ${firstName} detected as male`);
+             continue;
+           }
+         } catch (genderError) {
+           console.log(`[Worker] ⚠️ Gender detection failed for "${firstName}", allowing through`);
+           // Continue processing if gender detection fails
+         }
+       }
       
       // Apply targeting criteria
       const meetsTargeting = meetsSnippetCriteria(candidate.snippet, campaign.targeting_criteria, firstName);
