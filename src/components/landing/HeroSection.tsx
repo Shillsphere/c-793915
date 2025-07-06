@@ -13,9 +13,8 @@ export const HeroSection = ({
 }: HeroSectionProps) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   
-  // Fixed target date - set to 36 hours from when this file was last edited
-  // Update this date manually when you want to change the countdown
-  const launchDate = new Date('2025-01-07T09:54:00.000Z'); // 36 hours from July 5, 2025 21:54 UTC
+  // Fixed launch date: 36 hours from July 6, 2025 03:58:57 UTC
+  const launchDate = new Date('2025-07-07T15:58:57Z');
   
   return <div className="py-20 md:py-28 flex flex-col items-center text-center">
       {/* Hero content starts */}
