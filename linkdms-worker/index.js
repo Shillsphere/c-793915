@@ -1932,162 +1932,156 @@ async function simplePageConnect(page, db, campaign, limit) {
 
 async function safeConnect(page, db, campaign) {
   try {
-    console.log(`[Worker] 🔍 Using Stagehand AI to analyze visible profiles...`);
+    console.log(`[Worker] 🔍 Identifying and targeting profiles with precision...`);
     
-    // Use Stagehand to observe and extract profile information intelligently
-    const profilesObservation = await page.observe(
-      'Find all visible LinkedIn profiles in the search results that have Connect buttons. For each profile, extract the person\'s name and their professional summary/title.'
-    );
+    // Step 1: Get all profile candidates with specific data extraction
+    const profileCandidates = await page.evaluate(() => {
+      // Find all search result items
+      const resultItems = Array.from(document.querySelectorAll('li[class*="search-result"], li[data-chameleon-result-urn], .reusable-search__result-container'));
+      
+      return resultItems.slice(0, 10).map((item, index) => {
+        // Extract name from various possible selectors
+        const nameSelectors = [
+          '.entity-result__title-text a span[aria-hidden="true"]',
+          '.actor-name-with-distance span[aria-hidden="true"]',
+          '.search-result__info .linked-area .app-aware-link .actor-name',
+          'a[data-control-name*="actor"] span[aria-hidden="true"]',
+          '.result-lockup__name a span'
+        ];
+        
+        let name = null;
+        let profileUrl = null;
+        
+        for (const selector of nameSelectors) {
+          const nameElement = item.querySelector(selector);
+          if (nameElement && nameElement.textContent?.trim()) {
+            name = nameElement.textContent.trim();
+            
+            // Get profile URL from the same link
+            const linkElement = nameElement.closest('a') || item.querySelector('a[href*="/in/"]');
+            if (linkElement) {
+              profileUrl = linkElement.href;
+            }
+            break;
+          }
+        }
+        
+        // Extract snippet/subtitle text
+        const snippetSelectors = [
+          '.entity-result__primary-subtitle',
+          '.entity-result__secondary-subtitle',
+          '.subline-level-1',
+          '.result-lockup__subtitle'
+        ];
+        
+        let snippet = '';
+        for (const selector of snippetSelectors) {
+          const snippetElement = item.querySelector(selector);
+          if (snippetElement) {
+            snippet += snippetElement.textContent?.trim() + ' ';
+          }
+        }
+        
+        // Check for Connect button specifically in this item
+        const connectButton = item.querySelector('button[aria-label*="Connect"], button:contains("Connect")') || 
+                             Array.from(item.querySelectorAll('button')).find(btn => btn.textContent?.includes('Connect'));
+        
+        return {
+          index: index + 1,
+          name: name,
+          snippet: snippet.trim(),
+          profileUrl: profileUrl,
+          hasConnectButton: !!connectButton,
+          domIndex: index // For precise targeting
+        };
+      }).filter(profile => profile.name && profile.hasConnectButton);
+    });
     
-    if (!profilesObservation || profilesObservation.length === 0) {
-      console.log(`[Worker] ⚠️ Stagehand found no profiles with Connect buttons`);
+    if (!profileCandidates.length) {
+      console.log(`[Worker] ⚠️ No profiles with Connect buttons found`);
       return false;
     }
     
-    console.log(`[Worker] 🔍 Stagehand found ${profilesObservation.length} profiles with Connect buttons`);
+    console.log(`[Worker] 🔍 Found ${profileCandidates.length} profiles with Connect buttons`);
     
-    // Extract profile information using Stagehand's text extraction
-    const profileTexts = await page.evaluate(() => {
-      // Get visible text content from search results
-      const searchContainer = document.querySelector('.search-results-container, .search-results, main') || document.body;
-      return searchContainer.innerText;
-    });
-    
-    // Parse the profiles intelligently using Stagehand's context
+    // Step 2: Apply targeting criteria to select the best candidate
     let selectedProfile = null;
-    let targetingResults = [];
     
-    // For each profile observed by Stagehand, check targeting criteria
-    for (let i = 0; i < Math.min(profilesObservation.length, 5); i++) {
-      const profileElement = profilesObservation[i];
+    for (const candidate of profileCandidates) {
+      console.log(`[Worker] 🔍 Evaluating: ${candidate.name} - ${candidate.snippet.substring(0, 100)}...`);
       
-      // Use Stagehand to extract specific profile details
-      try {
-        const profileDetails = await page.observe(
-          `Look at profile #${i + 1} in the search results. Extract the person's name and their current job title/company information.`,
-          { returnText: true }
-        );
-        
-        if (!profileDetails) continue;
-        
-        const profileText = typeof profileDetails === 'string' ? profileDetails : JSON.stringify(profileDetails);
-        console.log(`[Worker] 🔍 Profile ${i + 1} details: ${profileText.substring(0, 150)}...`);
-        
-        // Check if this profile meets targeting criteria
-        const firstNameCandidate = (profileText.split('\n')[0] || '').split(' ')[0] || '';
-        
-        // Fast female name filter - skip obvious male names for female-targeted campaigns
-        if (campaign.targeting_criteria?.demographics?.gender_keywords?.length && 
-            detector.detect(firstNameCandidate) === 'male') {
-          console.log(`[Worker] ⚡ Fast skip: ${firstNameCandidate} detected as male`);
-          continue;
-        }
-        
-        const meetsTargeting = meetsSnippetCriteria(profileText, campaign.targeting_criteria, firstNameCandidate);
-        
-        targetingResults.push({
-          index: i + 1,
-          text: profileText,
-          meetsTargeting,
-          element: profileElement
-        });
-        
-        if (meetsTargeting && !selectedProfile) {
-          // Extract the profile URL from the search result
-          let profileUrl = null;
-          try {
-            // Use Stagehand to extract the profile URL
-            profileUrl = await page.evaluate(() => {
-              // Find the profile link in the search results
-              const profileLinks = Array.from(document.querySelectorAll('a[href*="/in/"]'));
-              // Get the first profile link that contains "/in/" (LinkedIn profile path)
-              const link = profileLinks.find(link => link.href.includes('/in/'));
-              return link ? link.href : null;
-            });
-            
-            if (!profileUrl) {
-              // Fallback: try to extract from the current page context
-              const currentUrl = page.url();
-              if (currentUrl.includes('linkedin.com/search/results/people')) {
-                // We're on search results page, try to get profile URL from search result
-                profileUrl = await page.evaluate((index) => {
-                  const resultCards = document.querySelectorAll('[data-chameleon-result-urn]');
-                  if (resultCards[index]) {
-                    const profileLink = resultCards[index].querySelector('a[href*="/in/"]');
-                    return profileLink ? profileLink.href : null;
-                  }
-                  return null;
-                }, i);
-              }
-            }
-          } catch (urlErr) {
-            console.warn(`[Worker] ⚠️ Could not extract profile URL:`, urlErr.message);
-          }
-          
-          selectedProfile = {
-            index: i + 1,
-            text: profileText,
-            name: profileText.split('\n')[0] || `Profile ${i + 1}`, // First line usually has the name
-            profileUrl: profileUrl, // ✅ Now properly extracted
-            element: profileElement
-          };
-          console.log(`[Worker] ✅ Selected profile ${i + 1} - meets targeting criteria, URL: ${profileUrl || 'not found'}`);
-        } else if (!meetsTargeting) {
-          console.log(`[Worker] ❌ Skipped profile ${i + 1} - doesn't meet targeting criteria`);
-        }
-      } catch (err) {
-        console.warn(`[Worker] ⚠️ Could not analyze profile ${i + 1}:`, err.message);
+      const firstName = candidate.name.split(' ')[0] || '';
+      
+      // Fast gender filter for female-targeted campaigns
+      if (campaign.targeting_criteria?.demographics?.gender_keywords?.length && 
+          detector.detect(firstName) === 'male') {
+        console.log(`[Worker] ⚡ Fast skip: ${firstName} detected as male`);
+        continue;
+      }
+      
+      // Apply targeting criteria
+      const meetsTargeting = meetsSnippetCriteria(candidate.snippet, campaign.targeting_criteria, firstName);
+      
+      if (meetsTargeting) {
+        selectedProfile = candidate;
+        console.log(`[Worker] ✅ Selected: ${candidate.name} (meets targeting criteria)`);
+        break;
+      } else {
+        console.log(`[Worker] ❌ Skipped: ${candidate.name} (doesn't meet criteria)`);
       }
     }
     
     if (!selectedProfile) {
-      console.log(`[Worker] ⚠️ No profiles meet targeting criteria. Results:`);
-      targetingResults.forEach(result => {
-        console.log(`  Profile ${result.index}: ${result.meetsTargeting ? '✅ PASS' : '❌ FAIL'}`);
-      });
+      console.log(`[Worker] ⚠️ No profiles meet targeting criteria`);
       return false;
     }
     
-    console.log(`[Worker] 🎯 Connecting with profile ${selectedProfile.index} using Stagehand AI...`);
+    // Step 3: ATOMIC ACTION - Target specific person by name
+    const targetName = selectedProfile.name;
+    console.log(`[Worker] 🎯 Attempting atomic connection with "${targetName}"`);
     
-    // Use Stagehand to intelligently click the Connect button for the selected profile
     try {
+      // NEW ATOMIC PROMPT - Eliminates index confusion
       await page.act(
-        `Click the "Connect" button for profile #${selectedProfile.index} in the search results. Make sure to click the button that says "Connect" (not "Follow", "Message", or "Withdraw"). Look for aria-label starting with "Connect to" or text content "Connect".`
+        `Find the person named "${targetName}" in the search results list. Then click the "Connect" button that is in the same list item/card as their name. Do not click "Follow", "Message", or "Withdraw" buttons.`
       );
       
-      console.log(`[Worker] ✅ Clicked Connect button for profile ${selectedProfile.index}`);
+      console.log(`[Worker] ✅ Clicked Connect button for ${targetName}`);
     } catch (err) {
-      console.warn(`[Worker] ⚠️ Failed to click Connect button:`, err.message);
-      
-      // Fallback: Try to connect with any available Connect button
-      try {
-        await page.act('Click a "Connect" button in the search results. Only click buttons with text "Connect" or aria-label starting with "Connect to". Do not click "Follow", "Message", or "Withdraw" buttons.');
-        console.log(`[Worker] ✅ Clicked Connect button (fallback method)`);
-      } catch (fallbackErr) {
-        console.error(`[Worker] ❌ All Connect attempts failed:`, fallbackErr.message);
-        return false;
-      }
+      console.warn(`[Worker] ❌ Stagehand could not find or click Connect button for ${targetName}:`, err.message);
+      return false;
     }
     
-    // Wait for potential modal to appear
-    await page.waitForTimeout(3000);
+    // Step 4: OUTCOME VALIDATION - Verify the action had intended effect
+    await page.waitForTimeout(3000); // Give UI time to respond
     
-    // Enhanced modal handling for LinkedIn's various connection scenarios
-    try {
-      console.log(`[Worker] 🔍 Checking for LinkedIn connection modal...`);
+    // Check if modal appeared (expected outcome for connection request)
+    const modalCheck = await page.evaluate(() => {
+      // Look for common LinkedIn connection modal selectors
+      const modalSelectors = [
+        'div[aria-labelledby*="send-invite"]',
+        'div[data-test-modal]',
+        '.send-invite',
+        '.artdeco-modal[aria-labelledby]',
+        '[role="dialog"]'
+      ];
       
-      // Check for withdrawal/warning modals first
-      const modalCheck = await page.observe(
-        'Look for any modal, popup, or dialog that appeared after clicking Connect. This could be asking "How do you know this person?", "Are you sure?", or showing connection options.'
-      );
+      for (const selector of modalSelectors) {
+        if (document.querySelector(selector)) {
+          return { modalFound: true, type: 'connection_modal' };
+        }
+      }
       
-      if (modalCheck && modalCheck.length > 0) {
-        console.log(`[Worker] 📋 Modal detected, analyzing options...`);
-        
-        // Check for withdrawal scenarios (LinkedIn asking verification)
+      return { modalFound: false };
+    });
+    
+    if (modalCheck.modalFound) {
+      console.log(`[Worker] ✅ Modal appeared as expected for ${targetName}. Proceeding to send invite.`);
+      
+      // Handle the connection modal
+      try {
+        // Handle "How do you know" modals
         try {
-          // Handle "How do you know X?" modal
           await page.act('If there is a modal asking "How do you know" this person, click "Other" or the most general option available');
           await page.waitForTimeout(2000);
           console.log(`[Worker] ✅ Handled "How do you know" modal`);
@@ -2095,34 +2089,27 @@ async function safeConnect(page, db, campaign) {
           console.log(`[Worker] ℹ️ No "How do you know" modal found`);
         }
         
-        // Check for note field (for campaigns that want to add notes)
+        // Handle personalized notes if required
         if (campaign.cta_mode === 'connect_with_note' && campaign.template) {
           try {
-            const noteObservation = await page.observe('Look for a text area or input field to add a personal note to the connection request');
+            const firstName = selectedProfile.name.split(' ')[0] || 'there';
+            const personalizedNote = await genMessage(firstName, campaign);
             
-            if (noteObservation && noteObservation.length > 0) {
-              const firstName = selectedProfile.name.split(' ')[0] || 'there';
-              const personalizedNote = await genMessage(firstName, campaign);
-              
-              await page.act(`Type this message in the note field: "${personalizedNote}"`);
-              console.log(`[Worker] ✅ Added personalized note`);
-              await page.waitForTimeout(2000);
-            }
+            await page.act(`Type this message in the note field: "${personalizedNote}"`);
+            console.log(`[Worker] ✅ Added personalized note`);
+            await page.waitForTimeout(2000);
           } catch (noteErr) {
-            console.log(`[Worker] ℹ️ No note field found or accessible`);
+            console.log(`[Worker] ℹ️ Could not add note: ${noteErr.message}`);
           }
         }
         
-        // Try to send the invitation with multiple strategies
+        // Send the invitation
         let sendSuccessful = false;
         const sendStrategies = [
           'Click the "Send invitation" button',
           'Click the "Send" button',
           'Click the "Send without a note" button',
-          'Click button[aria-label*="Send without note"]',
-          'Click the blue "Send" button',
-          'Click "Connect" if it appears as a final confirmation',
-          'Click any button that will complete the connection request'
+          'Click any blue button that will send the connection request'
         ];
         
         for (const strategy of sendStrategies) {
@@ -2137,36 +2124,64 @@ async function safeConnect(page, db, campaign) {
         }
         
         if (!sendSuccessful) {
-          console.error(`[Worker] ❌ All send strategies failed`);
+          console.error(`[Worker] ❌ All send strategies failed for ${targetName}`);
           return false;
         }
         
-      } else {
-        // No modal appeared, connection might have been sent immediately
-        console.log(`[Worker] ✅ No modal detected - connection likely sent immediately`);
+      } catch (modalErr) {
+        console.warn(`[Worker] ⚠️ Modal handling failed for ${targetName}:`, modalErr.message);
+        return false;
       }
       
-    } catch (modalErr) {
-      console.warn(`[Worker] ⚠️ Modal handling failed:`, modalErr.message);
+    } else {
+      // No modal appeared - check if connection was sent directly or if wrong button was clicked
+      console.log(`[Worker] ⚠️ No modal appeared after clicking Connect for ${targetName}`);
       
-      // Last resort: try to dismiss any blocking elements and send
-      try {
-        await page.act('If there are any buttons to complete or send a connection request, click them');
-        console.log(`[Worker] ✅ Sent connection invitation (fallback)`);
-      } catch (fallbackErr) {
-        console.error(`[Worker] ❌ Final fallback failed:`, fallbackErr.message);
-        return false;
+      // Check if the button status changed to "Pending" (immediate connection)
+      const statusCheck = await page.evaluate((name) => {
+        // Look for the person's name and check button status in their card
+        const searchResults = Array.from(document.querySelectorAll('li[class*="search-result"], li[data-chameleon-result-urn]'));
+        
+        for (const item of searchResults) {
+          const nameElement = item.querySelector('span[aria-hidden="true"]');
+          if (nameElement && nameElement.textContent?.includes(name)) {
+            // Check button status in this specific card
+            const pendingButton = item.querySelector('button[aria-label*="Pending"], button:contains("Pending")') ||
+                                 Array.from(item.querySelectorAll('button')).find(btn => btn.textContent?.includes('Pending'));
+            
+            const followingButton = item.querySelector('button[aria-label*="Following"], button:contains("Following")') ||
+                                   Array.from(item.querySelectorAll('button')).find(btn => btn.textContent?.includes('Following'));
+            
+            return {
+              isPending: !!pendingButton,
+              isFollowing: !!followingButton,
+              found: true
+            };
+          }
+        }
+        
+        return { found: false };
+      }, targetName);
+      
+      if (statusCheck.found && statusCheck.isPending) {
+        console.log(`[Worker] ✅ Connection sent directly for ${targetName}. Button shows "Pending".`);
+      } else if (statusCheck.found && statusCheck.isFollowing) {
+        console.warn(`[Worker] ⚠️ WRONG ACTION: Clicked "Follow" instead of "Connect" for ${targetName}. This is a targeting error.`);
+        return false; // Don't count this as a successful connection
+      } else {
+        console.warn(`[Worker] ⚠️ UNEXPECTED STATE: Clicked Connect for ${targetName}, but cannot verify outcome.`);
+        // Continue anyway - LinkedIn UI can be inconsistent
       }
     }
     
-    // Log successful connection to database
+    // Step 5: Log successful connection to database
     const prospectId = crypto.randomUUID();
     const firstName = selectedProfile.name.split(' ')[0] || null;
     
     await db.from('prospects').insert({
       id: prospectId,
       campaign_id: campaign.id,
-      profile_url: selectedProfile.profileUrl || null, // ✅ Use extracted URL
+      profile_url: selectedProfile.profileUrl || null,
       first_name: firstName,
       status: 'contacted',
     });
@@ -2187,7 +2202,7 @@ async function safeConnect(page, db, campaign) {
     // Track connection for follow-up campaigns
     await trackConnectionForFollowUp(campaign, {
       name: selectedProfile.name,
-      profileUrl: selectedProfile.profileUrl || null, // ✅ Use extracted URL
+      profileUrl: selectedProfile.profileUrl || null,
       firstName: firstName
     });
     
@@ -2196,6 +2211,12 @@ async function safeConnect(page, db, campaign) {
     
   } catch (err) {
     console.error(`[Worker] ❌ safeConnect failed:`, err.message);
+    
+    // Enhanced error logging for debugging
+    if (err.message.includes('Target page') || err.message.includes('browser has been closed')) {
+      console.error(`[Worker] 🔄 Browser crash detected in safeConnect`);
+    }
+    
     return false;
   }
 } 
