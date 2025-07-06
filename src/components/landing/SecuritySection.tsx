@@ -26,7 +26,7 @@ export const SecuritySection = ({
     answer: "No. We built linkdms after getting warnings ourselves. Our system mimics human behavior with randomized timing, local time zones, and hard caps under LinkedIn's limits."
   }, {
     question: "How many messages can I send per day?",
-    answer: "linkdms caps at 20 messages per day with randomized 3-12 minute delays to stay well under LinkedIn's detection thresholds."
+    answer: "linkdms caps at 30 messages per day with randomized 3-12 minute delays to stay well under LinkedIn's detection thresholds."
   }, {
     question: "Do you store my LinkedIn data?",
     answer: "No. We only store encrypted session cookies to maintain your connection. All prospect data is processed in real-time and never stored on our servers."

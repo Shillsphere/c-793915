@@ -7,6 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import OpenAI from 'openai';
 import crypto from 'node:crypto';
+import detector from 'gender-detection';
 
 // Initialize a single Supabase client that can be reused across requests and helper functions
 const db = createClient(
@@ -220,7 +221,8 @@ async function sendFollowUpMessage(page, prospect, campaign) {
 const followUpSafetyMonitor = {
   maxDailyFollowUps: 20,
   maxHourlyFollowUps: 5,
-  minDelayBetweenMessages: 300000, // 5 minutes
+  // Minimum spacing between follow-ups, overridable with env for smoke-tests
+  minDelayBetweenMessages: Number(process.env.MIN_FU_SPACING_MS ?? 300_000), // default 5 min
   
   async checkSafetyLimits(userId) {
     const now = new Date();
@@ -392,8 +394,8 @@ app.post('/process-followups', async (req, res) => {
     const lastCheckTime = new Date(Date.now() - 24 * 60 * 60 * 1000); // Check last 24 hours
     const newConnections = await detectNewConnections(page, campaign, lastCheckTime);
 
-    // 2. Find connections ready for follow-up (24+ hours after acceptance)
-    const followUpDelay = 24 * 60 * 60 * 1000; // 24 hours
+    // 2. Find connections ready for follow-up (after configured delay)
+    const followUpDelay = Number(process.env.FOLLOW_UP_DELAY_MS ?? 86_400_000); // default 24 h
     const cutoffTime = new Date(Date.now() - followUpDelay);
     
     const { data: readyForFollowUp } = await db
@@ -486,7 +488,7 @@ app.post('/run-linkedin-job', async (req, res) => {
   // ----------------- Fetch campaign & context -----------------
   const { data: campaign, error: cErr } = await db
     .from('campaigns')
-    .select('id,user_id,daily_limit,daily_sent,keywords,search_page,targeting_criteria,template,cta_mode,campaign_name')
+    .select('id,user_id,daily_limit,daily_sent,keywords,search_page,targeting_criteria,template,cta_mode,campaign_name,kw_variation_index,next_variation,next_page')
     .eq('id', campaign_id)
     .single();
   if (cErr || !campaign) {
@@ -505,11 +507,27 @@ app.post('/run-linkedin-job', async (req, res) => {
     return res.status(412).json({ error: 'User has no ready context' });
   }
 
-  // Calculate how many invites have already been sent today using new tracking system
-  const alreadySentToday = campaign.daily_sent || 0;
-  const remainingToday = Math.max(0, (campaign.daily_limit || 0) - alreadySentToday);
+  // ===== Aggregate daily limit across campaigns =====
+  // Calculate total invites the user has already sent today across ALL campaigns
+  const { data: userCampaigns, error: aggErr } = await db
+    .from('campaigns')
+    .select('daily_sent')
+    .eq('user_id', campaign.user_id);
+  if (aggErr) {
+    console.error('[Worker] ⚠️ Failed to fetch user aggregate sent count', aggErr.message);
+    return res.status(500).json({ error: 'Failed to fetch user quota' });
+  }
+  const userSentToday = (userCampaigns || []).reduce((sum, row) => sum + (row.daily_sent || 0), 0);
+  const userRemainingToday = Math.max(0, 30 - userSentToday); // GLOBAL LIMIT = 30
+
+  // Campaign-specific remaining (keeps per-campaign caps intact)
+  const campaignRemaining = Math.max(0, (campaign.daily_limit || 0) - (campaign.daily_sent || 0));
+
+  // Final allowed sends for this run is the minimum of user and campaign quota
+  const remainingToday = Math.min(userRemainingToday, campaignRemaining);
+
   if (remainingToday === 0) {
-    console.log('[Worker] Daily limit already reached, exiting');
+    console.log('[Worker] Daily limit already reached for user or campaign, exiting');
     return res.status(200).json({ success: true, invitesSent: 0, campaignId: campaign_id, note: 'limit_reached' });
   }
 
@@ -657,23 +675,27 @@ app.post('/run-linkedin-job', async (req, res) => {
     console.log(`[Worker] 🎯 Using simplified mass connect strategy with keyword variations for ${searchKeywords}`);
 
     const processed = new Set(); // avoid duplicate profile visits
-    let pageNum = 1;
-    const pageCap = 15; // hard stop to avoid endless loops
     let sent = 0;
 
-    while (sent < remainingToday && pageNum <= pageCap) {
-      // Generate a varied search URL for each page to get different results
-      const variationIndex = (pageNum - 1) % 8; // Cycle through 8 keyword variations
-      const searchUrl = await buildAdvancedSearchUrl(campaign.targeting_criteria || {}, searchKeywords, variationIndex, campaign.id);
-      const pageUrl = pageNum === 1 ? searchUrl : `${searchUrl}${searchUrl.includes('?') ? '&' : '?'}page=${pageNum}`;
+    // Initialize stateful cursor from campaign
+    let variationIdx = campaign.next_variation || 0;
+    let currentPage = campaign.next_page || 1;
+    const maxPages = 15; // hard stop to avoid endless loops
+    
+    console.log(`[Worker] 🎯 Resuming at variation ${variationIdx}, page ${currentPage}`);
+    
+    while (sent < remainingToday && currentPage <= maxPages) {
+      // Use stateful cursor for crash-safe rotation
+      const searchUrl = await buildAdvancedSearchUrl(campaign.targeting_criteria || {}, searchKeywords, variationIdx, campaign.id);
+      const pageUrl = currentPage === 1 ? searchUrl : `${searchUrl}${searchUrl.includes('?') ? '&' : '?'}page=${currentPage}`;
       
-      console.log(`[Worker] 📍 Page ${pageNum} (variation ${variationIndex}): ${pageUrl}`);
+      console.log(`[Worker] 📍 Page ${currentPage} (variation ${variationIdx}): ${pageUrl}`);
       let loaded = false;
       try {
         await withRetry(() => page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 60000 }), 3, 2000);
         loaded = true;
       } catch (err) {
-        console.warn(`[Worker] ⚠️ Failed to load search page ${pageNum} after retries:`, err.message);
+        console.warn(`[Worker] ⚠️ Failed to load search page ${currentPage} after retries:`, err.message);
       }
       if (!loaded) break; // exit main loop gracefully if page cannot load
 
@@ -701,7 +723,7 @@ app.post('/run-linkedin-job', async (req, res) => {
       }
 
       // 🚀 SAFE CONNECT - Check buttons before clicking to avoid withdrawals
-      console.log(`[Worker] 🚀 Safe connecting on page ${pageNum} - targeting up to ${Math.min(remainingToday - sent, 10)} connections`);
+      console.log(`[Worker] 🚀 Safe connecting on page ${currentPage} - targeting up to ${Math.min(remainingToday - sent, 10)} connections`);
       
       try {
         const connectionsThisPage = Math.min(remainingToday - sent, 10);
@@ -724,7 +746,7 @@ app.post('/run-linkedin-job', async (req, res) => {
                 await page.waitForTimeout(700);
               } catch (_) {}
             }
-          } else {
+        } else {
             console.log(`[Worker] ⚠️ Connection ${attempt + 1} failed, trying next person`);
             // Scroll to find new people
             try {
@@ -734,9 +756,9 @@ app.post('/run-linkedin-job', async (req, res) => {
           }
         }
         
-        console.log(`[Worker] ✅ Page ${pageNum} complete: ${pageConnections} connections made, total: ${sent}/${remainingToday}`);
+        console.log(`[Worker] ✅ Page ${currentPage} complete: ${pageConnections} connections made, total: ${sent}/${remainingToday}`);
       } catch (err) {
-        console.warn(`[Worker] ⚠️ Page ${pageNum} failed:`, err.message);
+        console.warn(`[Worker] ⚠️ Page ${currentPage} failed:`, err.message);
         
         // Check if it's a browser crash (common error patterns)
         if (isBrowserCrashError(err)) {
@@ -748,7 +770,7 @@ app.post('/run-linkedin-job', async (req, res) => {
           }
           // After restart, skip to next page to avoid the problematic area
           console.log('[Worker] ⏭️ Skipping to next page after browser restart to avoid problematic content');
-          pageNum++;
+          currentPage++;
           continue;
         } else {
           // Other errors, just continue to next page
@@ -756,7 +778,30 @@ app.post('/run-linkedin-job', async (req, res) => {
         }
       }
 
-      pageNum++;
+      // --- Stateful cursor advancement: increment page, wrap variation when needed ---
+      try {
+        currentPage++; // Move to next page
+        
+        // If we've reached max pages, reset to page 1 and advance variation
+        if (currentPage > maxPages) {
+          currentPage = 1;
+          variationIdx = (variationIdx + 1) % 20; // Wrap at 20 variations
+          console.log(`[Worker] 🔄 Wrapped to variation ${variationIdx}, page ${currentPage}`);
+        }
+        
+        // Persist cursor state to database
+        await db.from('campaigns')
+          .update({ 
+            next_variation: variationIdx,
+            next_page: currentPage
+          })
+          .eq('id', campaign.id);
+          
+        console.log(`[Worker] 💾 Cursor persisted: variation ${variationIdx}, page ${currentPage}`);
+      } catch (err) {
+        console.warn('[Worker] ⚠️ Failed to persist cursor state:', err.message);
+      }
+
       if (sent < remainingToday) {
         console.log(`[Worker] ⏭️ Moving to next search page. Progress: ${sent}/${remainingToday}`);
         try {
@@ -792,6 +837,21 @@ app.post('/run-linkedin-job', async (req, res) => {
       error: error.message,
       campaignId: campaign_id
     });
+  } finally {
+    // Crash-safe cursor persistence - always save state even on failures
+    try {
+      if (typeof variationIdx !== 'undefined' && typeof currentPage !== 'undefined') {
+        await db.from('campaigns')
+          .update({ 
+            next_variation: variationIdx,
+            next_page: currentPage
+          })
+          .eq('id', campaign_id);
+        console.log(`[Worker] 💾 Final cursor persistence: variation ${variationIdx}, page ${currentPage}`);
+      }
+    } catch (persistError) {
+      console.error(`[Worker] ❌ Failed to persist cursor in finally block:`, persistError.message);
+    }
   }
 });
 
@@ -806,6 +866,23 @@ app.listen(PORT, '0.0.0.0', () => {
 // +++++++++++++ HELPER FUNCTIONS +++++++++++++
 
 // AI-Enhanced keyword generation to avoid repetitive search results
+// 
+// RECOMMENDED KEYWORD SETS FOR SENIOR WOMEN LEADERS:
+// 
+// C-suite & Board:
+// chief executive officer CEO chief operating officer COO chief financial officer CFO chief marketing officer CMO chief people officer CPO president board director non-executive director
+// 
+// Functional heads:
+// vice president vp svp evp head of head women leadership women lead women executive
+// 
+// Founder/Investor:
+// founder cofounder owner managing partner general partner angel investor venture partner
+// 
+// Affinity tags:
+// women in leadership women in business women exec women founders woman leader she her
+// 
+// OR logic example: (women OR woman) (director OR vp OR "vice president" OR executive) (head OR lead OR chief)
+//
 async function generateKeywordVariations(originalKeywords, variationIndex = 0, campaignId = null, useAI = false) {
   // First try AI generation if enabled and we have OpenAI setup
   if (useAI && process.env.OPENAI_API_KEY && variationIndex > 7) {
@@ -1112,8 +1189,9 @@ function meetsTargetCriteria(profile = {}, criteria = {}) {
   // Gender keywords
   if (demographics.gender_keywords?.length) {
     const text = `${profile.pronouns || ''} ${profile.about || ''}`.toLowerCase();
-    const genderMatch = demographics.gender_keywords.some((kw) => text.includes(kw.toLowerCase()));
-    if (!genderMatch) return false;
+    const hasGenderKw = demographics.gender_keywords.some((kw) => text.includes(kw.toLowerCase()));
+    const nameLooksFemale = isLikelyFemale(profile.firstName || (profile.name?.split(' ')[0] || ''));
+    if (!hasGenderKw && !nameLooksFemale) return false;
   }
 
   // Professional keyword inclusion/exclusion
@@ -1138,6 +1216,14 @@ function meetsTargetCriteria(profile = {}, criteria = {}) {
     if (!currentJob?.company) return false;
     const companyMatch = professional.target_companies.some((c) => currentJob.company.toLowerCase().includes(c.toLowerCase()));
     if (!companyMatch) return false;
+  }
+
+  // ===== SENIORITY LEVEL CHECK (only if explicitly specified) =====
+  const seniorityArr = professional.seniority_levels?.length ? professional.seniority_levels : DEFAULT_SENIORITY;
+  if (seniorityArr.length && profile.fullExperience?.[0]?.title) {
+    const titleText = profile.fullExperience[0].title.toLowerCase();
+    const matchesSeniority = seniorityArr.some(level => titleText.includes(level.toLowerCase()));
+    if (!matchesSeniority) return false;
   }
 
   return true;
@@ -1244,9 +1330,9 @@ async function sendConnectionRequest(page, target, campaign) {
       // Try to click "Add a note" if present, else fallback to directly typing in textarea
       let noteArea = await page.observe('Locate the textarea to add a note to the invitation');
       if (!noteArea?.length) {
-        const addNoteBtn = await page.observe('Look for Add a note option');
+    const addNoteBtn = await page.observe('Look for Add a note option');
         if (addNoteBtn?.length) {
-          await page.act('Click Add a note');
+      await page.act('Click Add a note');
           await page.waitForTimeout(400);
           noteArea = await page.observe('Locate the textarea to add a note to the invitation');
         }
@@ -1261,7 +1347,32 @@ async function sendConnectionRequest(page, target, campaign) {
       }
     }
 
-    await page.act('Click the Send invitation button');
+    // Try multiple send strategies to handle LinkedIn's changing button text
+    const sendStrategies = [
+      'Click the "Send invitation" button',
+      'Click the "Send" button',
+      'Click the "Send without a note" button',
+      'Click button[aria-label*="Send without note"]',
+      'Click the blue "Send" button',
+      'Click any button that will complete the connection request'
+    ];
+    
+    let sendSuccessful = false;
+    for (const strategy of sendStrategies) {
+      try {
+        await page.act(strategy);
+        console.log(`[Worker] ✅ Successfully sent invitation using: ${strategy}`);
+        sendSuccessful = true;
+        break;
+      } catch (strategyErr) {
+        console.log(`[Worker] ⏭️ Strategy failed: ${strategy}`);
+      }
+    }
+    
+    if (!sendSuccessful) {
+      console.error(`[Worker] ❌ All send strategies failed`);
+      return false;
+    }
 
     // Persist invite
     const prospectLinkedInId = target.profileUrl.split('/in/')[1]?.split(/[/?]/)[0] ?? null;
@@ -1367,13 +1478,30 @@ async function ensureResults(page, n = 30, maxLoops = 15) {
   }
 }
 
-function meetsSnippetCriteria(snippet = '', criteria = {}) {
+// Debug logger – only prints when LOG_LEVEL=debug
+const debugLog = (...args) => {
+  if (process.env.LOG_LEVEL === 'debug') console.log(...args);
+};
+
+// Shared seniority keywords list - removed hard-coded filter to boost connect volume
+const DEFAULT_SENIORITY = [];
+
+// First-name gender heuristic
+export const isLikelyFemale = (name, thresh = 0.9) => {
+  try {
+    return detector.detect(name) === 'female';
+  } catch {
+    return false;
+  }
+};
+
+function meetsSnippetCriteria(snippet = '', criteria = {}, firstName = '') {
   if (!snippet) return true; // Allow profiles without snippets for broad searches like YC
   const text = snippet.toLowerCase();
   const prof = criteria?.professional || {};
   const demo = criteria?.demographics || {};
 
-  console.log(`[Worker] 🔍 Checking snippet: "${snippet.substring(0, 100)}..."`);
+  debugLog(`[Worker] 🔍 Checking snippet: "${snippet.substring(0, 100)}..."`);
 
   // ======= EXCLUDED KEYWORDS – IMMEDIATE REJECT =======
   if (prof.excluded_keywords?.length) {
@@ -1394,7 +1522,7 @@ function meetsSnippetCriteria(snippet = '', criteria = {}) {
                        studentPatterns.some(pattern => text.includes(pattern));
     
     if (hasExcluded) {
-      console.log(`[Worker] ❌ EXCLUDED: Found excluded keyword or student pattern in "${snippet.substring(0, 50)}..."`);
+      debugLog(`[Worker] ❌ EXCLUDED: Found excluded keyword or student pattern in "${snippet.substring(0, 50)}..."`);
       return false;
     }
   }
@@ -1419,31 +1547,41 @@ function meetsSnippetCriteria(snippet = '', criteria = {}) {
     
     // If minimum experience is high (15+ years) and we see junior indicators, exclude
     if (demo.min_experience_years >= 15 && hasJuniorIndicators && !hasSeniorIndicators) {
-      console.log(`[Worker] ❌ EXCLUDED: Junior-level indicators found for high experience requirement`);
+      debugLog(`[Worker] ❌ EXCLUDED: Junior-level indicators found for high experience requirement`);
       return false;
     }
     
     // If minimum experience is high but no senior indicators, be more cautious
     if (demo.min_experience_years >= 20 && !hasSeniorIndicators) {
-      console.log(`[Worker] ⚠️ WARNING: High experience requirement but no senior indicators found`);
+      debugLog(`[Worker] ⚠️ WARNING: High experience requirement but no senior indicators found`);
       // Still allow, but log the concern
     }
   }
 
-  // ======= GENDER KEYWORD CHECKS =======
+  // ======= GENDER KEYWORD / NAME HEURISTIC CHECKS =======
   if (demo.gender_keywords?.length) {
     const genderArr = Array.isArray(demo.gender_keywords)
       ? demo.gender_keywords
       : demo.gender_keywords.split(',').map((s) => s.trim());
-    
-    // Enhanced gender detection patterns
     const genderPatterns = genderArr.map(kw => kw.toLowerCase());
-    const hasGenderMatch = genderPatterns.some((kw) => text.includes(kw));
+    const hasGenderKw = genderPatterns.some((kw) => text.includes(kw));
     
-    if (!hasGenderMatch) {
-      console.log(`[Worker] ❌ EXCLUDED: Gender keywords not found: ${genderPatterns.join(', ')}`);
+    // Updated logic: Only exclude if name is clearly male AND no gender keywords found
+    let firstNameGender;
+    try {
+      firstNameGender = detector.detect(firstName);
+    } catch (error) {
+      firstNameGender = 'unknown'; // Default to unknown if detection fails
+    }
+    const isNotMale = firstNameGender !== 'male'; // Allow 'female' and 'unknown'
+    
+    if (!hasGenderKw && !isNotMale) {
+      debugLog('[Worker] ❌ EXCLUDED: gender test failed (no keyword & name is male)');
       return false;
     }
+    
+    // Log the gender detection for debugging
+    debugLog(`[Worker] 🔍 Gender check: hasKeyword=${hasGenderKw}, name="${firstName}", detected="${firstNameGender}"`);
   }
 
   // ======= REQUIRED KEYWORDS =======
@@ -1455,17 +1593,18 @@ function meetsSnippetCriteria(snippet = '', criteria = {}) {
     // Must match at least one required keyword
     const hasRequired = arr.some((kw) => kw && text.includes(kw.toLowerCase()));
     if (!hasRequired) {
-      console.log(`[Worker] ❌ EXCLUDED: Required keywords not found: ${arr.join(', ')}`);
+      debugLog(`[Worker] ❌ EXCLUDED: Required keywords not found: ${arr.join(', ')}`);
       return false;
     }
   }
 
   // ======= SENIORITY LEVEL CHECKS =======
-  if (prof.seniority_levels?.length) {
-    const seniorityArr = Array.isArray(prof.seniority_levels)
-      ? prof.seniority_levels
-      : prof.seniority_levels.split(',').map((s) => s.trim());
-    
+  const seniorityArr = (prof.seniority_levels?.length
+    ? (Array.isArray(prof.seniority_levels) ? prof.seniority_levels : prof.seniority_levels.split(',').map((s) => s.trim()))
+    : DEFAULT_SENIORITY);
+  
+  // Only check seniority if explicitly specified - no default filtering
+  if (seniorityArr.length > 0) {
     const seniorityMappings = {
       'director': ['director', 'head of', 'vp', 'vice president'],
       'executive': ['ceo', 'cto', 'cfo', 'chief', 'executive', 'president', 'founder'],
@@ -1480,21 +1619,21 @@ function meetsSnippetCriteria(snippet = '', criteria = {}) {
     });
     
     if (!matchesSeniority) {
-      console.log(`[Worker] ❌ EXCLUDED: Seniority level not matched: ${seniorityArr.join(', ')}`);
+      debugLog(`[Worker] ❌ EXCLUDED: Seniority level not matched: ${seniorityArr.join(', ')}`);
       return false;
     }
   }
 
   // ======= SPECIAL HANDLING FOR STARTUP/YC SEARCHES =======
   if (text.includes('yc') || text.includes('y combinator') || text.includes('combinator')) {
-    console.log(`[Worker] ✅ INCLUDED: YC-related profile (special handling)`);
+    debugLog(`[Worker] ✅ INCLUDED: YC-related profile (special handling)`);
     return true;
   }
 
   // Include startup-related keywords for YC campaigns  
   const startupTerms = ['founder', 'startup', 'entrepreneur', 'ceo', 'cto', 'co-founder'];
   if (startupTerms.some(term => text.includes(term))) {
-    console.log(`[Worker] ✅ INCLUDED: Startup-related profile`);
+    debugLog(`[Worker] ✅ INCLUDED: Startup-related profile`);
     return true;
   }
 
@@ -1506,13 +1645,13 @@ function meetsSnippetCriteria(snippet = '', criteria = {}) {
     
     const titleMatch = titles.some(title => text.includes(title.toLowerCase()));
     if (!titleMatch) {
-      console.log(`[Worker] ❌ EXCLUDED: Job title not matched: ${titles.join(', ')}`);
+      debugLog(`[Worker] ❌ EXCLUDED: Job title not matched: ${titles.join(', ')}`);
       return false;
     }
   }
 
-  console.log(`[Worker] ✅ INCLUDED: Profile meets all targeting criteria`);
-  return true; // Default to inclusive for broad targeting campaigns
+  debugLog(`[Worker] ✅ INCLUDED: Profile meets all targeting criteria`);
+  return true; // Default to inclusive - connect first, qualify in follow-up
 }
 
 async function logDirectInvite(db, campaign, person) {
@@ -1667,14 +1806,14 @@ async function massConnect(page, db, campaign, limit) {
         // Scroll to reveal more results if needed
         if (i < limit - 1) {
           await page.act('Scroll down to reveal more search results');
-          await page.waitForTimeout(500);
+      await page.waitForTimeout(500);
         }
       } catch (err) {
         console.warn(`[Worker] ⚠️ Mass connect ${i+1} failed:`, err.message);
         // Try to scroll and continue
         try {
           await page.act('Scroll down to reveal more search results');
-          await page.waitForTimeout(500);
+      await page.waitForTimeout(500);
         } catch (_) {}
       }
     }
@@ -1835,7 +1974,16 @@ async function safeConnect(page, db, campaign) {
         console.log(`[Worker] 🔍 Profile ${i + 1} details: ${profileText.substring(0, 150)}...`);
         
         // Check if this profile meets targeting criteria
-        const meetsTargeting = meetsSnippetCriteria(profileText, campaign.targeting_criteria);
+        const firstNameCandidate = (profileText.split('\n')[0] || '').split(' ')[0] || '';
+        
+        // Fast female name filter - skip obvious male names for female-targeted campaigns
+        if (campaign.targeting_criteria?.demographics?.gender_keywords?.length && 
+            detector.detect(firstNameCandidate) === 'male') {
+          console.log(`[Worker] ⚡ Fast skip: ${firstNameCandidate} detected as male`);
+          continue;
+        }
+        
+        const meetsTargeting = meetsSnippetCriteria(profileText, campaign.targeting_criteria, firstNameCandidate);
         
         targetingResults.push({
           index: i + 1,
@@ -1969,7 +2117,9 @@ async function safeConnect(page, db, campaign) {
         let sendSuccessful = false;
         const sendStrategies = [
           'Click the "Send invitation" button',
-          'Click the "Send" button', 
+          'Click the "Send" button',
+          'Click the "Send without a note" button',
+          'Click button[aria-label*="Send without note"]',
           'Click the blue "Send" button',
           'Click "Connect" if it appears as a final confirmation',
           'Click any button that will complete the connection request'

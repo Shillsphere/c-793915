@@ -7,13 +7,27 @@ primary_region = 'ord'
 [build]
   dockerfile = "Dockerfile"
 
-# Internal-only service (no public HTTP access)
+[env]
+  LOG_LEVEL = "debug"
+
+# Service definition
 [[services]]
   internal_port = 3000
   protocol = "tcp"
-  
+  # Let Fly auto-start the machine on first request and auto-stop on idle
+  auto_start = true
+  auto_stop = true
+
+  # --- Public exposure (added for Edge Function access) ---
+  # HTTP (port 80) will redirect to HTTPS automatically
   [[services.ports]]
-    port = 3000
+    port = 80
+    handlers = ["http"]
+
+  # HTTPS endpoint
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
 
 [[vm]]
   memory = '1gb'

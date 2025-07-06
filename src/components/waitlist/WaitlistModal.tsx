@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -54,19 +53,22 @@ export function WaitlistModal({ isOpen, onClose }: WaitlistModalProps) {
         return
       }
 
-      toast.success("Thanks for joining our waitlist! We'll be in touch soon.", {
-        duration: 5000,
-      })
+      // Create Stripe checkout session
+      const { data: checkoutData, error: checkoutError } = await supabase.functions.invoke(
+        'create-checkout-session',
+        {
+          body: { email: formData.email }
+        }
+      )
+
+      if (checkoutError || !checkoutData?.url) {
+        toast.error("Payment setup failed. Please try again.")
+        return
+      }
+
+      // Redirect to Stripe checkout
+      window.location.href = checkoutData.url
       
-      // Reset form
-      setFormData({
-        name: "",
-        email: "",
-        linkedin: "",
-        reason: ""
-      })
-      
-      onClose()
     } catch (error) {
       console.error('Error submitting waitlist application:', error)
       toast.error("Something went wrong. Please try again.")
@@ -81,7 +83,7 @@ export function WaitlistModal({ isOpen, onClose }: WaitlistModalProps) {
         <DialogHeader>
           <DialogTitle>Join Our Waitlist</DialogTitle>
           <DialogDescription>
-            Help us understand your needs better and get early access.
+            Early-access spots are <span className="font-semibold">$59/month</span>. Pay now, get access when the product launches. You'll be redirected to secure checkout.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4 py-4">

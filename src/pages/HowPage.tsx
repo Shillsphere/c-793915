@@ -86,12 +86,12 @@ const HowPage = () => {
             </h1>
             
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
-              Set up automated LinkedIn outreach in minutes, not hours. Here's exactly how to get started and what happens under the hood.
+              From zero to autopilot in three simple steps. Up to <strong>210 new connections and messages sent every week</strong> — no lists, no scraping.
             </p>
             
             <div className="glass-panel p-6 rounded-lg">
               <p className="text-lg text-primary font-medium">
-                Top performing AI models for copy, Supabase for storage, Redis queue for send cadence, residential proxy rotation for safe login.
+                Top performing AI models for decision making and writing, Supabase for storage, Redis queue for send cadence, residential proxy rotation for safe login.
               </p>
             </div>
           </div>
@@ -103,51 +103,37 @@ const HowPage = () => {
             <h2 className="text-3xl font-bold text-center mb-12">Getting Started with linkdms</h2>
             
             <div className="relative max-w-4xl mx-auto">
-              <div className="absolute left-6 top-12 w-0.5 h-[calc(100%-100px)] bg-gradient-to-b from-primary via-primary/50 to-primary/20"></div>
+              <div className="absolute left-6 top-12 w-0.5 h-[calc(100%-60px)] bg-gradient-to-b from-primary via-primary/50 to-primary/20"></div>
               
               <SetupStep 
                 number={1}
-                title="Connect Your LinkedIn"
-                description="Secure one-click connection to your LinkedIn account"
+                title="Describe your audience"
+                description="Say who you want to connect with — role, industry, location, seniority."
                 details={[
-                  "Takes less than 30 seconds to set up",
-                  "Works with LinkedIn Premium and free accounts"
+                  "Example: 'FinTech founders in London'",
+                  "No CSVs or manual lists required"
                 ]}
               />
               
               <SetupStep 
                 number={2}
-                title="Upload Your Prospect List"
-                description="Import your targets in seconds"
+                title="Press play"
+                description="AI builds keyword variations, scans search pages and sends safe invites."
                 details={[
-                  "Drag and drop a CSV file with LinkedIn profile URLs",
-                  "Or paste a Sales Navigator search URL",
-                  "We automatically extract names, headlines, and recent posts",
-                  "Support for up to 1,000 prospects per campaign"
+                  "Random 3–12 min delays",
+                  "30 connections per day (≈210 per week)",
+                  "Local time-zone scheduling"
                 ]}
               />
               
               <SetupStep 
                 number={3}
-                title="Craft Your Message Template"
-                description="Write your opener once, AI personalizes for everyone"
+                title="Relax & reply"
+                description="When they accept, we wait 24 h then DM. Dashboard updates live."
                 details={[
-                  "Write your core message template",
-                  "AI automatically includes their name, headline, and recent post",
-                  "Generates 3 unique variants to avoid detection",
-                  "Preview how messages will look before sending"
-                ]}
-              />
-              
-              <SetupStep 
-                number={4}
-                title="Activate & Monitor"
-                description="Set it running and track results in real-time"
-                details={[
-                  "Messages send automatically during business hours",
-                  "Maximum 20 messages per day to stay under LinkedIn limits",
-                  "3-12 minute random delays between sends",
-                  "Automatic pause when someone replies"
+                  "Personalised follow-up with GPT-4o",
+                  "Automatic pause on any reply",
+                  "Full metrics: sent, accepted, replied, booked"
                 ]}
               />
             </div>
@@ -195,10 +181,10 @@ const HowPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div className="text-center">
                 <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-4">
-                  <span className="text-2xl font-bold text-green-500">20</span>
+                  <span className="text-2xl font-bold text-green-500">30</span>
                 </div>
-                <h3 className="font-bold text-lg mb-2">Daily Message Limit</h3>
-                <p className="text-foreground/80">Hard cap at 20 messages per day, well under LinkedIn's spam thresholds</p>
+                <h3 className="font-bold text-lg mb-2">Daily Invite Limit</h3>
+                <p className="text-foreground/80">Hard cap at 30 invites per day — that's 210 every week.</p>
               </div>
               
               <div className="text-center">
@@ -211,10 +197,10 @@ const HowPage = () => {
               
               <div className="text-center">
                 <div className="w-16 h-16 rounded-full bg-purple-500/10 flex items-center justify-center mx-auto mb-4">
-                  <span className="text-2xl font-bold text-purple-500">0</span>
+                  <span className="text-2xl font-bold text-purple-500">24h</span>
                 </div>
-                <h3 className="font-bold text-lg mb-2">Data Storage</h3>
-                <p className="text-foreground/80">We never store prospect data - everything is processed in real-time and discarded</p>
+                <h3 className="font-bold text-lg mb-2">Follow-up Delay</h3>
+                <p className="text-foreground/80">Default 24-hour wait before the personalised DM — feels natural.</p>
               </div>
             </div>
           </div>

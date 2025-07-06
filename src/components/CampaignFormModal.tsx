@@ -91,6 +91,16 @@ const createCampaign = async (newCampaignData: z.infer<typeof campaignSchema>) =
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("User not authenticated");
 
+  // Enforce max 2 campaigns per user
+  const { count: existingCount, error: countErr } = await supabase
+    .from('campaigns')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id);
+  if (countErr) throw countErr;
+  if ((existingCount || 0) >= 2) {
+    throw new Error('You have reached the maximum of 2 campaigns. Please archive or delete an existing campaign before creating a new one.');
+  }
+
   const { campaign_name, ...rest } = newCampaignData;
   const payload = {
     campaign_name: campaign_name,

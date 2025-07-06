@@ -2,6 +2,9 @@ import { Button } from '@/components/ui/button';
 import { AnimatedTransition } from '@/components/AnimatedTransition';
 import { useState } from 'react';
 import { WaitlistModal } from '../waitlist/WaitlistModal';
+import { CountdownTimer } from "@/components/CountdownTimer";
+import { VideoPlayer } from "@/components/VideoPlayer";
+
 interface HeroSectionProps {
   showTitle: boolean;
 }
@@ -9,22 +12,48 @@ export const HeroSection = ({
   showTitle
 }: HeroSectionProps) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Fixed target date - set to 36 hours from when this file was last edited
+  // Update this date manually when you want to change the countdown
+  const launchDate = new Date('2025-01-07T09:54:00.000Z'); // 36 hours from July 5, 2025 21:54 UTC
+  
   return <div className="py-20 md:py-28 flex flex-col items-center text-center">
+      {/* Hero content starts */}
       <AnimatedTransition show={showTitle} animation="slide-up" duration={600}>
-        {/* Title first */}
-        <h1 className="text-4xl sm:text-5xl font-bold mb-6 bg-clip-text text-blue-600 md:text-7xl">
-          The AI DM Engine for LinkedIn
-        </h1>
-        
-        {/* Interactive text second */}
-        <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8 animate-fade-in">
-          linkdms writes, personalises and drip-sends 20 warm LinkedIn messages a day while you focus on real work.
-        </p>
-        
-        {/* Call to action last */}
-        <Button size="lg" onClick={() => setIsModalOpen(true)} className="rounded-full px-8 py-6 text-base font-medium bg-primary hover:bg-primary/90 transition-all duration-300">
-          Get Early Access
-        </Button>
+        <div className="w-full max-w-4xl mx-auto flex flex-col items-center">
+          {/* Title first */}
+          <h1 className="text-4xl sm:text-5xl font-bold mb-6 bg-clip-text text-blue-600 md:text-7xl leading-tight text-center">
+            Instant LinkedIn outreach.<br className="hidden sm:block" /> Just tell us <em>who</em>, have AI do the rest.
+          </h1>
+          
+          {/* Sub-headline second */}
+          <p className="text-xl text-muted-foreground max-w-3xl mx-auto mt-4 mb-8 animate-fade-in text-center">
+            Define your ideal audience once and watch connections, replies and meetings roll in automatically.
+          </p>
+
+          {/* Product demo video. Replace /demo.mp4 with your own recording in public/ */}
+          <div className="w-full max-w-3xl aspect-video rounded-xl overflow-hidden mb-10 shadow-lg">
+            <VideoPlayer src="/demo.mp4" className="w-full h-full object-cover" />
+          </div>
+          
+          {/* Call-to-action */}
+          <Button
+            size="lg"
+            onClick={() => setIsModalOpen(true)}
+            className="rounded-full px-8 py-6 text-base font-medium bg-primary hover:bg-primary/90 transition-all duration-300"
+          >
+            Join Early Access – $59/month
+          </Button>
+
+          {/* Countdown directly beneath CTA */}
+          <div className="mt-4 flex flex-col items-center">
+            <p className="text-xs uppercase tracking-wider text-primary/80 mb-1">Product launches in</p>
+            <CountdownTimer
+              target={launchDate}
+              className="text-2xl sm:text-3xl font-bold text-primary"
+            />
+          </div>
+        </div>
 
         <WaitlistModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
       </AnimatedTransition>

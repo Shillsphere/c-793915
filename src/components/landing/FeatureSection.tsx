@@ -1,4 +1,3 @@
-
 import { BrainCircuit, Search, FileText, LinkIcon, Database, Network, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AnimatedTransition } from '@/components/AnimatedTransition';
@@ -18,7 +17,7 @@ export const FeatureSection = ({ showFeatures }: FeatureSectionProps) => {
     {
       icon: <Search size={24} />,
       title: "Safe-send engine",
-      description: "3-12 min random delay, local time zones, 20/day cap.",
+      description: "Random 3–12 min gaps, respects time zones, 30/day (≈210/week).",
       color: "from-purple-400/60 to-purple-600/40"
     },
     {
@@ -59,7 +58,7 @@ export const FeatureSection = ({ showFeatures }: FeatureSectionProps) => {
           </div>
           <h2 className="text-3xl md:text-4xl font-bold mb-4">Key Features</h2>
           <p className="text-muted-foreground mt-3 max-w-2xl mx-auto">
-            linkdms automates the boring 90% of LinkedIn outreach. Upload a list, approve the tone, and let our AI deliver 20 personalised messages a day—without triggering spam flags.
+            linkdms automates 90% of LinkedIn outreach. Describe your ideal audience once and our AI delivers up to <strong>210 personalised invites every week</strong>—always under LinkedIn's safety limits.
           </p>
         </div>
         
